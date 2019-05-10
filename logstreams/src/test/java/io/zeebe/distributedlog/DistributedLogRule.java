@@ -101,8 +101,6 @@ public class DistributedLogRule extends ExternalResource {
 
     LogstreamConfig.putConfig(memberId, config);
     LogstreamConfig.putServiceContainer(memberId, serviceContainer);
-    LogstreamConfig.putRestoreClientFactory(
-        memberId, p -> null); // return null until we figure out what to use to test
 
     configFuture = actorScheduler.submitActor(config);
   }
@@ -142,7 +140,11 @@ public class DistributedLogRule extends ExternalResource {
   }
 
   public void stopNode() {
-    partitions.forEach((i, p) -> p.close());
+    partitions.forEach(
+        (i, p) -> {
+          p.close();
+          LogstreamConfig.removeRestoreClientFactory(String.valueOf(nodeId), i);
+        });
     stopAtomixNode();
     nodeStarted = null;
   }
@@ -171,6 +173,8 @@ public class DistributedLogRule extends ExternalResource {
       final DistributedLogPartitionRule partition =
           new DistributedLogPartitionRule(serviceContainer, nodeId, i, rootDirectory);
       partitions.put(i, partition);
+      LogstreamConfig.putRestoreClientFactory(
+          String.valueOf(nodeId), i, null); // return null until we figure out what to use to test
       partition.start();
     }
   }

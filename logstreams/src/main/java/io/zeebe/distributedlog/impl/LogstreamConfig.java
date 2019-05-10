@@ -63,11 +63,16 @@ public class LogstreamConfig {
   }
 
   public static RestoreClient getRestoreClient(String nodeId, int partitionId) {
-    return RESTORE_CLIENT_FACTORIES.get(nodeId).createClient(partitionId);
+    return RESTORE_CLIENT_FACTORIES.get(nodeId).createClient();
   }
 
-  public static void putRestoreClientFactory(String nodeId, RestoreClientFactory provider) {
-    RESTORE_CLIENT_FACTORIES.put(nodeId, provider);
+  public static void putRestoreClientFactory(
+      String nodeId, int partitionId, RestoreClientFactory provider) {
+    RESTORE_CLIENT_FACTORIES.put(key(nodeId, partitionId), provider);
+  }
+
+  public static void removeRestoreClientFactory(String nodeId, int partitionId) {
+    RESTORE_CLIENT_FACTORIES.remove(key(nodeId, partitionId));
   }
 
   public static CompletableFuture<PartitionLeaderElectionController> getLeaderElectionController(
