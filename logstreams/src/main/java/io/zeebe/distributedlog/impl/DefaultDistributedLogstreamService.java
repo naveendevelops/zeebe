@@ -22,12 +22,18 @@ import io.atomix.primitive.service.ServiceExecutor;
 import io.atomix.primitive.service.impl.DefaultServiceExecutor;
 import io.atomix.protocols.raft.impl.RaftContext;
 import io.atomix.protocols.raft.service.RaftServiceContext;
+import io.atomix.utils.concurrent.SingleThreadContext;
+import io.atomix.utils.concurrent.ThreadContext;
 import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.distributedlog.StorageConfiguration;
+import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreClient;
+import io.zeebe.distributedlog.restore.RestoreStrategy;
+import io.zeebe.distributedlog.restore.impl.PartitionLeaderStrategyPicker;
 import io.zeebe.distributedlog.restore.log.LogReplicationAppender;
+import io.zeebe.distributedlog.restore.log.LogReplicator;
 import io.zeebe.logstreams.LogStreams;
 import io.zeebe.logstreams.impl.service.LogStreamServiceNames;
 import io.zeebe.logstreams.log.BufferedLogStreamReader;
@@ -50,15 +56,18 @@ public class DefaultDistributedLogstreamService
 
   private LogStream logStream;
   private LogStorage logStorage;
-  private long lastPosition;
+  private String logName;
+
   private String currentLeader;
   private long currentLeaderTerm = -1;
 
-  private String logName;
+  private long lastPosition;
+  private int partitionId;
 
   private ServiceContainer serviceContainer;
   private RestoreClient restoreClient;
-  private ServiceExecutor serviceExecutor;
+
+  private ThreadContext restoreThreadContext;
 
   public DefaultDistributedLogstreamService(DistributedLogstreamServiceConfig config) {
     super(DistributedLogstreamType.instance(), DistributedLogstreamClient.class);
@@ -68,10 +77,9 @@ public class DefaultDistributedLogstreamService
   @Override
   protected void configure(ServiceExecutor executor) {
     super.configure(executor);
-
-    serviceExecutor = executor;
     try {
       logName = getRaftPartitionName(executor);
+      restoreThreadContext = new SingleThreadContext(String.format("log-restore-%s-%%d", logName));
       LOG.info(
           "Configuring {} on node {} with logName {}",
           getServiceName(),
@@ -221,17 +229,53 @@ public class DefaultDistributedLogstreamService
 
   @Override
   public void restore(BackupInput backupInput) {
-    // restore in-memory states
     final long backupPosition = backupInput.readLong();
-    LOG.info("Restoring log");
     if (lastPosition < backupPosition) {
-      LOG.error(
-          "There are missing events in the logstream. last event in logstream is {}. backup position is {}.",
-          lastPosition,
-          backupPosition);
+      final String localMemberId = getLocalMemberId().id();
+      final long latestLocalPosition = lastPosition;
+
+      // pick the correct restore strategy and execute forever until the log is restored, e.g.
+      // lastPosition >= backupPosition. this is based on the assumption that lastPosition is
+      // modified by the strategy, which is safe to do as we use a single threaded context while
+      // this thread is blocked.
+      while (lastPosition < backupPosition) {
+        LOG.trace("Restoring local log from position {} to {}", lastPosition, backupInput);
+        try {
+          LogstreamConfig.getLeaderElectionController(localMemberId, partitionId)
+              .thenApply(this::buildRestoreStrategyPicker)
+              .thenCompose(
+                  strategyPicker ->
+                      strategyPicker
+                          .pick(latestLocalPosition, backupPosition)
+                          .thenApply(RestoreStrategy::executeRestoreStrategy))
+              .join();
+          LOG.trace("Restored local log from position {} to {}", latestLocalPosition, lastPosition);
+        } catch (RuntimeException e) {
+          LOG.error(
+              "Failed to restore log from {} to {}, retrying from {}",
+              latestLocalPosition,
+              backupInput,
+              lastPosition,
+              e);
+        }
+      }
     }
+
+    LOG.debug("Restored local log to position {}", lastPosition);
     currentLeader = backupInput.readString();
     currentLeaderTerm = backupInput.readLong();
+  }
+
+  private PartitionLeaderStrategyPicker buildRestoreStrategyPicker(
+      PartitionLeaderElectionController electionController) {
+    final String localMemberId = getLocalMemberId().id();
+    final RestoreClient restoreClient =
+        LogstreamConfig.getRestoreClient(localMemberId, partitionId);
+    final LogReplicator logReplicator =
+        new LogReplicator(this, restoreClient, restoreThreadContext, LOG);
+
+    return new PartitionLeaderStrategyPicker(
+        electionController, restoreClient, logReplicator, localMemberId, restoreThreadContext);
   }
 
   @Override

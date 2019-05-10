@@ -16,13 +16,14 @@
 package io.zeebe.distributedlog.restore.log;
 
 import io.atomix.cluster.MemberId;
+import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.log.impl.DefaultLogReplicationRequest;
 import io.zeebe.util.ZbLogger;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 
-public class LogReplicator {
+public class LogReplicator implements RestoreStrategy {
   private final LogReplicationAppender appender;
   private final LogReplicationClient client;
   private final Executor executor;
@@ -48,6 +49,11 @@ public class LogReplicator {
     final CompletableFuture<Long> result = new CompletableFuture<>();
     replicateInternal(server, from, to, result);
     return result;
+  }
+
+  @Override
+  public CompletableFuture<Long> executeRestoreStrategy() {
+    return null;
   }
 
   private void replicateInternal(

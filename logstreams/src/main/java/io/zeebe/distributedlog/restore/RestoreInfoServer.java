@@ -15,6 +15,7 @@
  */
 package io.zeebe.distributedlog.restore;
 
+import io.zeebe.distributedlog.restore.RestoreInfoResponse.ReplicationTarget;
 import java.util.concurrent.CompletableFuture;
 
 public interface RestoreInfoServer extends AutoCloseable {
@@ -35,12 +36,10 @@ public interface RestoreInfoServer extends AutoCloseable {
     /**
      * Handles a single {@link RestoreInfoRequest} request. The returned response must be non-null.
      *
-     * <p>If the returned {@link io.zeebe.distributedlog.restore.RestoreStrategy.ReplicationTarget}
-     * is {@link io.zeebe.distributedlog.restore.RestoreStrategy.ReplicationTarget#EVENTS}, then
-     * there must exist an event locally at {@link RestoreInfoRequest#getLatestLocalPosition()}. If
-     * the returned {@link io.zeebe.distributedlog.restore.RestoreStrategy.ReplicationTarget} is
-     * {@link io.zeebe.distributedlog.restore.RestoreStrategy.ReplicationTarget#SNAPSHOT}, then
-     * there must exists a snapshot with a position greater than {@link
+     * <p>If the returned {@link ReplicationTarget} is {@link ReplicationTarget#EVENTS}, then there
+     * must exist an event locally at {@link RestoreInfoRequest#getLatestLocalPosition()}. If the
+     * returned {@link ReplicationTarget} is {@link ReplicationTarget#SNAPSHOT}, then there must
+     * exists a snapshot with a position greater than {@link
      * RestoreInfoRequest#getLatestLocalPosition()}.
      *
      * @param request request to handle

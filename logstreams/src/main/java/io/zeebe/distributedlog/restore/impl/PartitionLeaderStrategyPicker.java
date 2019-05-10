@@ -23,6 +23,7 @@ import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.RestoreStrategyPicker;
+import io.zeebe.distributedlog.restore.log.LogReplicator;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
@@ -37,14 +38,17 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
   private final RestoreClient client;
   private final String localMemberId;
   private final Scheduler scheduler;
+  private final LogReplicator logReplicator;
 
   public PartitionLeaderStrategyPicker(
       PartitionLeaderElectionController electionController,
       RestoreClient client,
+      LogReplicator logReplicator,
       String localMemberId,
       Scheduler scheduler) {
     this.electionController = electionController;
     this.client = client;
+    this.logReplicator = logReplicator;
     this.localMemberId = localMemberId;
     this.scheduler = scheduler;
   }
@@ -79,10 +83,30 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
         new DefaultRestoreInfoRequest(latestLocalPosition, backupPosition);
     return client
         .requestRestoreInfo(server, request)
-        .thenApply(response -> this.onRestoreInfoReceived(server, response));
+        .thenCompose(
+            response ->
+                onRestoreInfoReceived(server, latestLocalPosition, backupPosition, response));
   }
 
-  private RestoreStrategy onRestoreInfoReceived(MemberId server, RestoreInfoResponse response) {
-    return new RestoreStrategy(server, response.getReplicationTarget());
+  private CompletableFuture<RestoreStrategy> onRestoreInfoReceived(
+      MemberId server,
+      long latestLocalPosition,
+      long backupPosition,
+      RestoreInfoResponse response) {
+    final CompletableFuture<RestoreStrategy> result = new CompletableFuture<>();
+
+    switch (response.getReplicationTarget()) {
+      case SNAPSHOT:
+        result.completeExceptionally(new UnsupportedOperationException("not yet implemented"));
+        break;
+      case EVENTS:
+        result.complete(() -> logReplicator.replicate(server, latestLocalPosition, backupPosition));
+        break;
+      case NONE:
+        result.completeExceptionally(new RuntimeException("h"));
+        break;
+    }
+
+    return result;
   }
 }
