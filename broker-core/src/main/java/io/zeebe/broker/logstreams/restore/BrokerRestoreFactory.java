@@ -25,30 +25,22 @@ import java.util.concurrent.ExecutorService;
 
 public class BrokerRestoreFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
+  private final String replicationTopic;
+  private final String restoreInfoTopic;
 
-  public BrokerRestoreFactory(ClusterCommunicationService communicationService) {
+  public BrokerRestoreFactory(ClusterCommunicationService communicationService, int partitionId) {
     this.communicationService = communicationService;
+    this.replicationTopic = String.format("log-replication-%d", partitionId);
+    this.restoreInfoTopic = String.format("restore-info-%d", partitionId);
   }
 
   @Override
-  public RestoreClient createClient(int partitionId) {
-    return new BrokerRestoreClient(
-        communicationService, getReplicationTopic(partitionId), getRestoreInfoTopic(partitionId));
+  public RestoreClient createClient() {
+    return new BrokerRestoreClient(communicationService, replicationTopic, restoreInfoTopic);
   }
 
-  public RestoreServer createServer(int partitionId, ExecutorService executor) {
+  public RestoreServer createServer(ExecutorService executor) {
     return new BrokerRestoreServer(
-        communicationService,
-        getReplicationTopic(partitionId),
-        getRestoreInfoTopic(partitionId),
-        executor);
-  }
-
-  private String getReplicationTopic(int partitionId) {
-    return String.format("log-replication-%d", partitionId);
-  }
-
-  private String getRestoreInfoTopic(int partitionId) {
-    return String.format("restore-info-%d", partitionId);
+        communicationService, replicationTopic, restoreInfoTopic, executor);
   }
 }

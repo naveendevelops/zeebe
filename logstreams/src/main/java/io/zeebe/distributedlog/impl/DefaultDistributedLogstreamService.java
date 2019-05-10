@@ -57,16 +57,11 @@ public class DefaultDistributedLogstreamService
   private LogStream logStream;
   private LogStorage logStorage;
   private String logName;
-
+  private int partitionId;
   private String currentLeader;
   private long currentLeaderTerm = -1;
-
   private long lastPosition;
-  private int partitionId;
-
   private ServiceContainer serviceContainer;
-  private RestoreClient restoreClient;
-
   private ThreadContext restoreThreadContext;
 
   public DefaultDistributedLogstreamService(DistributedLogstreamServiceConfig config) {
@@ -121,11 +116,10 @@ public class DefaultDistributedLogstreamService
   private void createLogStream(String logServiceName) {
     // A hack to get partitionId from the name
     final String[] splitted = logServiceName.split("-");
-    final int partitionId = Integer.parseInt(splitted[splitted.length - 1]);
+    partitionId = Integer.parseInt(splitted[splitted.length - 1]);
 
     final String localMemberId = getLocalMemberId().id();
     serviceContainer = LogstreamConfig.getServiceContainer(localMemberId);
-    restoreClient = LogstreamConfig.getRestoreClient(localMemberId, partitionId);
 
     if (serviceContainer.hasService(LogStreamServiceNames.logStreamServiceName(logServiceName))) {
       logStream = LogstreamConfig.getLogStream(localMemberId, partitionId);
@@ -188,9 +182,7 @@ public class DefaultDistributedLogstreamService
     final ByteBuffer buffer = ByteBuffer.wrap(blockBuffer);
     final long appendResult = logStorage.append(buffer);
     if (appendResult > 0) {
-      // Following is required to trigger the commit listeners.
-      logStream.setCommitPosition(commitPosition);
-      lastPosition = commitPosition;
+      updateCommitPosition(commitPosition);
     }
     // the return result is valid only for the leader. If the followers failed to append, they don't
     // retry
@@ -235,20 +227,20 @@ public class DefaultDistributedLogstreamService
       final long latestLocalPosition = lastPosition;
 
       // pick the correct restore strategy and execute forever until the log is restored, e.g.
-      // lastPosition >= backupPosition. this is based on the assumption that lastPosition is
-      // modified by the strategy, which is safe to do as we use a single threaded context while
-      // this thread is blocked.
+      // lastPosition >= backupPosition.
       while (lastPosition < backupPosition) {
         LOG.trace("Restoring local log from position {} to {}", lastPosition, backupInput);
         try {
-          LogstreamConfig.getLeaderElectionController(localMemberId, partitionId)
-              .thenApply(this::buildRestoreStrategyPicker)
-              .thenCompose(
-                  strategyPicker ->
-                      strategyPicker
-                          .pick(latestLocalPosition, backupPosition)
-                          .thenApply(RestoreStrategy::executeRestoreStrategy))
-              .join();
+          final long lastUpdatedPosition =
+              LogstreamConfig.getLeaderElectionController(localMemberId, partitionId)
+                  .thenApply(this::buildRestoreStrategyPicker)
+                  .thenCompose(
+                      strategyPicker ->
+                          strategyPicker
+                              .pick(latestLocalPosition, backupPosition)
+                              .thenCompose(RestoreStrategy::executeRestoreStrategy))
+                  .join();
+          updateCommitPosition(lastUpdatedPosition);
           LOG.trace("Restored local log from position {} to {}", latestLocalPosition, lastPosition);
         } catch (RuntimeException e) {
           LOG.error(
@@ -264,6 +256,12 @@ public class DefaultDistributedLogstreamService
     LOG.debug("Restored local log to position {}", lastPosition);
     currentLeader = backupInput.readString();
     currentLeaderTerm = backupInput.readLong();
+  }
+
+  private void updateCommitPosition(long commitPosition) {
+    // Following is required to trigger the commit listeners.
+    logStream.setCommitPosition(commitPosition);
+    lastPosition = commitPosition;
   }
 
   private PartitionLeaderStrategyPicker buildRestoreStrategyPicker(
