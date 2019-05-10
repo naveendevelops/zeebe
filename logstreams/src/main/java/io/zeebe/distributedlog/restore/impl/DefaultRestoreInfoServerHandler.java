@@ -17,8 +17,8 @@ package io.zeebe.distributedlog.restore.impl;
 
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
+import io.zeebe.distributedlog.restore.RestoreInfoResponse.ReplicationTarget;
 import io.zeebe.distributedlog.restore.RestoreInfoServer;
-import io.zeebe.distributedlog.restore.RestoreStrategy.ReplicationTarget;
 import io.zeebe.logstreams.log.BufferedLogStreamReader;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.log.LogStreamReader;
@@ -38,11 +38,11 @@ public class DefaultRestoreInfoServerHandler implements RestoreInfoServer.Handle
   public RestoreInfoResponse onRestoreInfoRequest(RestoreInfoRequest request) {
     final ReplicationTarget target;
     if (snapshotController.getLastValidSnapshotPosition() >= request.getLatestLocalPosition()) {
-      target = ReplicationTarget.SNAPSHOT;
+      target = RestoreInfoResponse.ReplicationTarget.SNAPSHOT;
     } else if (reader.seek(request.getLatestLocalPosition()) && reader.hasNext()) {
-      target = ReplicationTarget.EVENTS;
+      target = RestoreInfoResponse.ReplicationTarget.EVENTS;
     } else {
-      target = ReplicationTarget.NONE;
+      target = RestoreInfoResponse.ReplicationTarget.NONE;
     }
 
     return new DefaultRestoreInfoResponse(target);
