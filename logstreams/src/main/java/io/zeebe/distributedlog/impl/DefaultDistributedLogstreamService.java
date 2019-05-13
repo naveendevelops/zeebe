@@ -243,6 +243,7 @@ public class DefaultDistributedLogstreamService
           updateCommitPosition(lastUpdatedPosition);
           LOG.trace("Restored local log from position {} to {}", latestLocalPosition, lastPosition);
         } catch (RuntimeException e) {
+          lastPosition = logStream.getCommitPosition();
           LOG.error(
               "Failed to restore log from {} to {}, retrying from {}",
               latestLocalPosition,
