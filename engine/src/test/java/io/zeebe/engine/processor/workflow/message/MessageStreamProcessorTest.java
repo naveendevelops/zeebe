@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,7 +46,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -106,8 +106,8 @@ public class MessageStreamProcessorTest {
 
     verify(mockSubscriptionCommandSender, timeout(5_000).times(2))
         .openWorkflowInstanceSubscription(
-            ArgumentMatchers.eq(subscription.getWorkflowInstanceKey()),
-            ArgumentMatchers.eq(subscription.getElementInstanceKey()),
+            eq(subscription.getWorkflowInstanceKey()),
+            eq(subscription.getElementInstanceKey()),
             any(),
             anyBoolean());
   }
@@ -241,8 +241,8 @@ public class MessageStreamProcessorTest {
     // by the time we perform the verification.
     verify(mockSubscriptionCommandSender, timeout(5_000).times(2))
         .closeWorkflowInstanceSubscription(
-            ArgumentMatchers.eq(subscription.getWorkflowInstanceKey()),
-            ArgumentMatchers.eq(subscription.getElementInstanceKey()),
+            eq(subscription.getWorkflowInstanceKey()),
+            eq(subscription.getElementInstanceKey()),
             any(DirectBuffer.class));
   }
 
@@ -441,8 +441,8 @@ public class MessageStreamProcessorTest {
 
     verify(mockSubscriptionCommandSender, timeout(5_000))
         .correlateWorkflowInstanceSubscription(
-            ArgumentMatchers.eq(subscription.getWorkflowInstanceKey()),
-            ArgumentMatchers.eq(subscription.getElementInstanceKey()),
+            eq(subscription.getWorkflowInstanceKey()),
+            eq(subscription.getElementInstanceKey()),
             nameCaptor.capture(),
             eq(firstMessageKey),
             variablesCaptor.capture());
