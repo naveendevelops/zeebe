@@ -30,8 +30,10 @@ import static io.zeebe.broker.clustering.base.partitions.PartitionServiceNames.p
 import static io.zeebe.broker.engine.EngineServiceNames.stateStorageFactoryServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.distributedLogPartitionServiceName;
 
+import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.Loggers;
+import io.zeebe.broker.logstreams.restore.BrokerRestoreContext;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
@@ -63,7 +65,9 @@ public class PartitionInstallService extends Actor
 
   private final StorageConfiguration configuration;
   private final int partitionId;
+  private final String localMemberId;
   private final ClusterEventService clusterEventService;
+  private final ClusterCommunicationService communicationService;
   private final BrokerCfg brokerCfg;
 
   private ServiceStartContext startContext;
@@ -77,15 +81,20 @@ public class PartitionInstallService extends Actor
   private ActorFuture<PartitionLeaderElection> leaderElectionInstallFuture;
   private PartitionLeaderElection leaderElection;
   private ActorFuture<Void> transitionFuture;
+  private BrokerRestoreContext restoreContext;
 
   public PartitionInstallService(
       ClusterEventService clusterEventService,
+      ClusterCommunicationService communicationService,
       final StorageConfiguration configuration,
-      BrokerCfg brokerCfg) {
+      BrokerCfg brokerCfg,
+      String localMemberId) {
     this.configuration = configuration;
     this.partitionId = configuration.getPartitionId();
     this.clusterEventService = clusterEventService;
+    this.communicationService = communicationService;
     this.brokerCfg = brokerCfg;
+    this.localMemberId = localMemberId;
   }
 
   @Override
@@ -134,12 +143,16 @@ public class PartitionInstallService extends Actor
     openLogStreamServiceName = leaderOpenLogStreamServiceName(logName);
     followerPartitionServiceName = followerPartitionServiceName(logName);
 
+    restoreContext =
+        new BrokerRestoreContext(partitionId, localMemberId, communicationService, leaderElection);
+
     startContext.getScheduler().submitActor(this);
   }
 
   @Override
   public void stop(ServiceStopContext stopContext) {
     leaderElection.removeListener(this);
+    restoreContext.close();
   }
 
   @Override
@@ -149,6 +162,7 @@ public class PartitionInstallService extends Actor
         (leaderElection, e) -> {
           if (e == null) {
             leaderElection.addListener(this);
+            restoreContext.updateLogstreamConfig();
           } else {
             LOG.error("Could not install leader election for partition {}", partitionId, e);
           }
@@ -220,7 +234,8 @@ public class PartitionInstallService extends Actor
         new Partition(
             brokerCfg,
             clusterEventService,
-            clusterCommunicationService,
+            communicationService,
+            restoreContext,
             partitionId,
             RaftState.LEADER);
 
@@ -262,7 +277,8 @@ public class PartitionInstallService extends Actor
         new Partition(
             brokerCfg,
             clusterEventService,
-            clusterCommunicationService,
+            communicationService,
+            restoreContext,
             partitionId,
             RaftState.FOLLOWER);
 

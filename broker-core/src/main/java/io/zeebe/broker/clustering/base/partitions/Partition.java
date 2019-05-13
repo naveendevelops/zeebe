@@ -26,6 +26,7 @@ import io.zeebe.broker.Loggers;
 import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.exporter.stream.ExporterColumnFamilies;
 import io.zeebe.broker.exporter.stream.ExportersState;
+import io.zeebe.broker.logstreams.restore.BrokerRestoreContext;
 import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.db.ZeebeDb;
@@ -53,6 +54,8 @@ public class Partition implements Service<Partition> {
   private final ClusterEventService eventService;
   private final BrokerCfg brokerCfg;
   private final ClusterCommunicationService communicationService;
+  private final BrokerRestoreContext restoreContext;
+
   private SnapshotReplication processorStateReplication;
   private SnapshotReplication exporterStateReplication;
   private DefaultOnDemandSnapshotReplication processorSnapshotRequestServer;
@@ -76,6 +79,7 @@ public class Partition implements Service<Partition> {
       BrokerCfg brokerCfg,
       ClusterEventService eventService,
       ClusterCommunicationService communicationService,
+      BrokerRestoreContext restoreContext,
       final int partitionId,
       final RaftState state) {
     this.brokerCfg = brokerCfg;
@@ -83,6 +87,7 @@ public class Partition implements Service<Partition> {
     this.state = state;
     this.eventService = eventService;
     this.communicationService = communicationService;
+    this.restoreContext = restoreContext;
   }
 
   @Override
@@ -142,6 +147,7 @@ public class Partition implements Service<Partition> {
               communicationService, partitionId, exporterProcessorName, executor);
       exporterSnapshotRequestServer.serve(
           request -> exporterSnapshotController.replicateLatestSnapshot(r -> r.run()));
+      restoreContext.startRestoreServer(logStream, processorSnapshotController);
     }
   }
 
@@ -183,14 +189,21 @@ public class Partition implements Service<Partition> {
   public void stop(ServiceStopContext stopContext) {
     processorStateReplication.close();
     exporterStateReplication.close();
+
     if (processorSnapshotRequestServer != null) {
       processorSnapshotRequestServer.close();
     }
+
     if (exporterSnapshotRequestServer != null) {
       exporterSnapshotRequestServer.close();
     }
+
     if (executor != null) {
       executor.shutdown();
+    }
+
+    if (state == RaftState.LEADER) {
+      restoreContext.stopRestoreServer();
     }
   }
 

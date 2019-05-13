@@ -21,7 +21,6 @@ import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.distributedlog.restore.RestoreServer;
-import java.util.concurrent.ExecutorService;
 
 public class BrokerRestoreFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
@@ -39,8 +38,7 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
     return new BrokerRestoreClient(communicationService, replicationTopic, restoreInfoTopic);
   }
 
-  public RestoreServer createServer(ExecutorService executor) {
-    return new BrokerRestoreServer(
-        communicationService, replicationTopic, restoreInfoTopic, executor);
+  public RestoreServer createServer() {
+    return new BrokerRestoreServer(communicationService, replicationTopic, restoreInfoTopic);
   }
 }

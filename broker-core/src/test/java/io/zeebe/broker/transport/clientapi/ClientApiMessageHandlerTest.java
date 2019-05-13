@@ -29,6 +29,7 @@ import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.clustering.base.partitions.Partition;
 import io.zeebe.broker.clustering.base.partitions.RaftState;
+import io.zeebe.broker.logstreams.restore.BrokerRestoreContext;
 import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.impl.DefaultDistributedLogstreamService;
 import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
@@ -191,6 +192,7 @@ public class ClientApiMessageHandlerTest {
             null,
             mock(ClusterEventService.class),
             mock(ClusterCommunicationService.class),
+            mock(BrokerRestoreContext.class),
             LOG_STREAM_PARTITION_ID,
             RaftState.LEADER) {
           @Override
