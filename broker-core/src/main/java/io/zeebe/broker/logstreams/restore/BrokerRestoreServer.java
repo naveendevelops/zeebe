@@ -23,6 +23,7 @@ import io.zeebe.distributedlog.restore.RestoreServer;
 import io.zeebe.distributedlog.restore.log.LogReplicationServer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BrokerRestoreServer implements RestoreServer {
   private final ClusterCommunicationService communicationService;
@@ -33,12 +34,12 @@ public class BrokerRestoreServer implements RestoreServer {
   public BrokerRestoreServer(
       ClusterCommunicationService communicationService,
       String logReplicationTopic,
-      String restoreInfoTopic,
-      ExecutorService executor) {
+      String restoreInfoTopic) {
     this.communicationService = communicationService;
     this.logReplicationTopic = logReplicationTopic;
     this.restoreInfoTopic = restoreInfoTopic;
-    this.executor = executor;
+
+    this.executor = Executors.newSingleThreadExecutor(r -> new Thread(r, "restore-server"));
   }
 
   @Override
