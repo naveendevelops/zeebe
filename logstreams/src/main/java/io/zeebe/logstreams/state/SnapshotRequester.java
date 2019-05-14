@@ -24,20 +24,32 @@ import java.util.concurrent.CompletableFuture;
 // leader
 public class SnapshotRequester {
   private final RestoreClient client;
-  private final SnapshotController[] snapshotControllers;
+  private final SnapshotController processorSnapshotController;
+  private final SnapshotController exporterSnapshotController;
 
-  public SnapshotRequester(RestoreClient client, SnapshotController[] snapshotControllers) {
+  public SnapshotRequester(
+      RestoreClient client,
+      SnapshotController processorSnapshotController,
+      SnapshotController exporterSnapshotController) {
     this.client = client;
-    this.snapshotControllers = snapshotControllers;
+    this.processorSnapshotController = processorSnapshotController;
+    this.exporterSnapshotController = exporterSnapshotController;
   }
 
-  public CompletableFuture<Void> getLatestSnapshotsFrom(MemberId server) {
-    CompletableFuture<Void> replicated = CompletableFuture.completedFuture(null);
+  public CompletableFuture<Void> getLatestSnapshotsFrom(
+      MemberId server, boolean getExporterSnapshot) {
+    CompletableFuture<Void> replicated = new CompletableFuture<>();
 
-    for (SnapshotController controller : snapshotControllers) {
-      final CompletableFuture<Void> future = new CompletableFuture<>();
-      controller.addListener(new DefaultSnapshotReplicationListener(controller, future));
-      replicated = replicated.thenCompose((nothing) -> future);
+    final CompletableFuture<Void> future = new CompletableFuture<>();
+    processorSnapshotController.addListener(
+        new DefaultSnapshotReplicationListener(processorSnapshotController, future));
+    replicated = replicated.thenCompose((nothing) -> future);
+
+    if (getExporterSnapshot) {
+      final CompletableFuture<Void> exporterFuture = new CompletableFuture<>();
+      exporterSnapshotController.addListener(
+          new DefaultSnapshotReplicationListener(exporterSnapshotController, future));
+      replicated = replicated.thenCompose((nothing) -> exporterFuture);
     }
 
     client.requestLatestSnapshot(server);

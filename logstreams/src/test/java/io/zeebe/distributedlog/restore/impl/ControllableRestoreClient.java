@@ -32,6 +32,11 @@ public class ControllableRestoreClient implements RestoreClient {
       new HashMap<>();
 
   @Override
+  public CompletableFuture<Integer> requestSnapshotInfo(MemberId server) {
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  @Override
   public void requestLatestSnapshot(MemberId server) {
     throw new UnsupportedOperationException("Not yet implemented");
   }

@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface RestoreServer extends AutoCloseable {
   CompletableFuture<Void> serve(SnapshotInfoRequestHandler handler);
+
   CompletableFuture<Void> serve(SnapshotRequestHandler handler);
 
   /**

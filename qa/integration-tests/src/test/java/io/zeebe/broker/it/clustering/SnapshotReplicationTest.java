@@ -164,7 +164,8 @@ public class SnapshotReplicationTest {
             clusteringRule.getAtomixCluster().getCommunicationService(),
             "",
             "",
-            "snapshot-request-1", snapshotInfoRequestTopic)
+            "snapshot-request-1",
+            "")
         .requestLatestSnapshot(MemberId.from(String.valueOf(leaderNodeId)));
 
     // then
