@@ -28,20 +28,24 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 public class BrokerRestoreClient implements RestoreClient {
+  private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(5);
   private final ClusterCommunicationService communicationService;
   private final String logReplicationTopic;
   private final String restoreInfoTopic;
   private final String snapshotRequestTopic;
+  private final String snapshotInfoRequestTopic;
 
   public BrokerRestoreClient(
       ClusterCommunicationService communicationService,
       String logReplicationTopic,
       String restoreInfoTopic,
-      String snapshotRequestTopic) {
+      String snapshotRequestTopic,
+      String snapshotInfoRequestTopic) {
     this.communicationService = communicationService;
     this.logReplicationTopic = logReplicationTopic;
     this.restoreInfoTopic = restoreInfoTopic;
     this.snapshotRequestTopic = snapshotRequestTopic;
+    this.snapshotInfoRequestTopic = snapshotInfoRequestTopic;
   }
 
   @Override
@@ -53,7 +57,7 @@ public class BrokerRestoreClient implements RestoreClient {
         SbeLogReplicationRequest::serialize,
         SbeLogReplicationResponse::new,
         server,
-        Duration.ofSeconds(5));
+        DEFAULT_REQUEST_TIMEOUT);
   }
 
   @Override
@@ -65,7 +69,13 @@ public class BrokerRestoreClient implements RestoreClient {
         SbeRestoreInfoRequest::serialize,
         SbeRestoreInfoResponse::new,
         server,
-        Duration.ofSeconds(5));
+        DEFAULT_REQUEST_TIMEOUT);
+  }
+
+  @Override
+  public CompletableFuture<Integer> requestSnapshotInfo(MemberId server) {
+    return communicationService.send(
+        snapshotInfoRequestTopic, null, server, DEFAULT_REQUEST_TIMEOUT);
   }
 
   @Override

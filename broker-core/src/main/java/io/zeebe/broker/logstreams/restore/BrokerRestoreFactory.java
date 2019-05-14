@@ -35,7 +35,8 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
         communicationService,
         getLogReplicationTopic(partitionId),
         getRestoreInfoTopic(partitionId),
-        getSnapshotRequestTopic(partitionId));
+        getSnapshotRequestTopic(partitionId),
+        getSnapshotInfoRequestTopic(partitionId));
   }
 
   public RestoreServer createServer(int partitionId) {
@@ -43,7 +44,8 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
         communicationService,
         getLogReplicationTopic(partitionId),
         getRestoreInfoTopic(partitionId),
-        getSnapshotRequestTopic(partitionId));
+        getSnapshotRequestTopic(partitionId),
+        getSnapshotInfoRequestTopic(partitionId));
   }
 
   private String getLogReplicationTopic(int partitionId) {
@@ -56,5 +58,9 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
 
   private String getSnapshotRequestTopic(int partitionId) {
     return String.format("snapshot-request-%d", partitionId);
+  }
+
+  private String getSnapshotInfoRequestTopic(int partitionId) {
+    return String.format("snapshot-info-request-%d", partitionId);
   }
 }

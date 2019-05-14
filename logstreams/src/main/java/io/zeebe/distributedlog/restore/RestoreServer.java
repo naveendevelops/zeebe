@@ -21,6 +21,7 @@ import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
 import java.util.concurrent.CompletableFuture;
 
 public interface RestoreServer extends AutoCloseable {
+  CompletableFuture<Void> serve(SnapshotInfoRequestHandler handler);
   CompletableFuture<Void> serve(SnapshotRequestHandler handler);
 
   /**
@@ -41,6 +42,19 @@ public interface RestoreServer extends AutoCloseable {
    * @return a future which will complete once the server is ready to accept requests
    */
   CompletableFuture<Void> serve(LogReplicationRequestHandler server);
+
+  @FunctionalInterface
+  interface SnapshotInfoRequestHandler {
+
+    /**
+     * Handles a single {@link io.zeebe.logstreams.state.OnDemandSnapshotReplication} request. No
+     * response is expected from the server, as this is a control message to trigger the server to
+     * push the latest snapshot to the requester.
+     *
+     * @param request null
+     */
+    Integer onSnapshotInfoRequest(Void request);
+  }
 
   @FunctionalInterface
   interface SnapshotRequestHandler {

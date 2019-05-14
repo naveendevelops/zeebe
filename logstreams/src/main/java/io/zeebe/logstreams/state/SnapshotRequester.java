@@ -33,6 +33,7 @@ public class SnapshotRequester {
 
   public CompletableFuture<Void> getLatestSnapshotsFrom(MemberId server) {
     CompletableFuture<Void> replicated = CompletableFuture.completedFuture(null);
+
     for (SnapshotController controller : snapshotControllers) {
       final CompletableFuture<Void> future = new CompletableFuture<>();
       controller.addListener(new DefaultSnapshotReplicationListener(controller, future));

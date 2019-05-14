@@ -28,17 +28,20 @@ public class BrokerRestoreServer implements RestoreServer {
   private final String logReplicationTopic;
   private final String restoreInfoTopic;
   private final String snapshotRequestTopic;
+  private final String snapshotInfoRequestTopic;
   private final ExecutorService executor;
 
   public BrokerRestoreServer(
       ClusterCommunicationService communicationService,
       String logReplicationTopic,
       String restoreInfoTopic,
-      String snapshotRequestTopic) {
+      String snapshotRequestTopic,
+      String snapshotInfoRequestTopic) {
     this.communicationService = communicationService;
     this.logReplicationTopic = logReplicationTopic;
     this.restoreInfoTopic = restoreInfoTopic;
     this.snapshotRequestTopic = snapshotRequestTopic;
+    this.snapshotInfoRequestTopic = snapshotInfoRequestTopic;
 
     this.executor = Executors.newSingleThreadExecutor(r -> new Thread(r, "restore-server"));
   }
@@ -68,6 +71,12 @@ public class BrokerRestoreServer implements RestoreServer {
         server::onRestoreInfoRequest,
         SbeRestoreInfoResponse::serialize,
         executor);
+  }
+
+  @Override
+  public CompletableFuture<Void> serve(SnapshotInfoRequestHandler handler) {
+    return communicationService.subscribe(
+        snapshotInfoRequestTopic, handler::onSnapshotInfoRequest, executor);
   }
 
   @Override

@@ -23,8 +23,10 @@ import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreServer;
 import io.zeebe.distributedlog.restore.RestoreServer.LogReplicationRequestHandler;
 import io.zeebe.distributedlog.restore.RestoreServer.RestoreInfoRequestHandler;
+import io.zeebe.distributedlog.restore.RestoreServer.SnapshotInfoRequestHandler;
 import io.zeebe.distributedlog.restore.RestoreServer.SnapshotRequestHandler;
 import io.zeebe.distributedlog.restore.impl.DefaultRestoreInfoRequestHandler;
+import io.zeebe.distributedlog.restore.impl.DefaultSnapshotInfoRequestHandler;
 import io.zeebe.distributedlog.restore.impl.DefaultSnapshotRequestHandler;
 import io.zeebe.distributedlog.restore.log.impl.DefaultLogReplicationRequestHandler;
 import io.zeebe.logstreams.log.LogStream;
@@ -58,6 +60,14 @@ public class BrokerRestoreContext implements AutoCloseable {
     LogstreamConfig.removeLeaderElectionController(localMemberId, partitionId);
   }
 
+  public void setProcessorSnapshotController(SnapshotController snapshotController) {
+    LogstreamConfig.putProcesorSnapshotController(localMemberId, partitionId, snapshotController);
+  }
+
+  public void setExporterSnapshotController(SnapshotController snapshotController) {
+    LogstreamConfig.putExporterSnapshotController(localMemberId, partitionId, snapshotController);
+  }
+
   @Override
   public void close() {
     stopRestoreServer();
@@ -75,12 +85,16 @@ public class BrokerRestoreContext implements AutoCloseable {
         new DefaultRestoreInfoRequestHandler(logStream, processorSnapshotController);
     final SnapshotRequestHandler snapshotRequestHandler =
         new DefaultSnapshotRequestHandler(processorSnapshotController, exporterSnapshotController);
+    final SnapshotInfoRequestHandler snapshotInfoRequestHandler =
+        new DefaultSnapshotInfoRequestHandler(
+            processorSnapshotController, exporterSnapshotController);
 
     this.server = restoreFactory.createServer(partitionId);
     this.server
         .serve(logReplicationHandler)
         .thenCompose(nothing -> server.serve(restoreInfoHandler))
         .thenCompose(nothing -> server.serve(snapshotRequestHandler))
+        .thenCompose(nothing -> server.serve(snapshotInfoRequestHandler))
         .thenAccept(startedFuture::complete);
     return startedFuture;
   }

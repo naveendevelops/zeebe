@@ -21,6 +21,7 @@ import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
 import java.util.concurrent.CompletableFuture;
 
 public interface RestoreClient {
+  CompletableFuture<Integer> requestSnapshotInfo(MemberId server);
   /**
    * Requests the latest snapshot from the server.
    *

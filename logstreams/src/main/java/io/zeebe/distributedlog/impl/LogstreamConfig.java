@@ -21,6 +21,7 @@ import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.logstreams.log.LogStream;
+import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.servicecontainer.ServiceContainer;
 import io.zeebe.util.sched.future.ActorFuture;
 import java.util.Map;
@@ -33,7 +34,12 @@ public class LogstreamConfig {
   private static final Map<String, ServiceContainer> SERVICE_CONTAINERS = new ConcurrentHashMap<>();
   private static final Map<String, StorageConfigurationManager> CONFIGS = new ConcurrentHashMap<>();
   private static final Map<String, LogStream> LOGSTREAMS = new ConcurrentHashMap<>();
+  // TODO: Move everything needed for Restoring logstream to a RestoreContext
   private static final Map<String, RestoreClientFactory> RESTORE_CLIENT_FACTORIES =
+      new ConcurrentHashMap<>();
+  private static final Map<String, SnapshotController> PROCESSOR_SNAPSHOT_CONTROLLER =
+      new ConcurrentHashMap<>();
+  private static final Map<String, SnapshotController> EXPORTER_SNAPSHOT_CONTROLLER =
       new ConcurrentHashMap<>();
   private static final Map<String, CompletableFuture<PartitionLeaderElectionController>>
       LEADER_ELECTION_CONTROLLERS = new ConcurrentHashMap<>();
@@ -87,6 +93,34 @@ public class LogstreamConfig {
 
   public static void removeLeaderElectionController(String nodeId, int partitionId) {
     LEADER_ELECTION_CONTROLLERS.remove(key(nodeId, partitionId));
+  }
+
+  public static void putProcesorSnapshotController(
+      String nodeId, int partitionId, SnapshotController snapshotController) {
+    PROCESSOR_SNAPSHOT_CONTROLLER.put(key(nodeId, partitionId), snapshotController);
+  }
+
+  public static SnapshotController getProcesorSnapshotController(String nodeId, int partitionId) {
+    return PROCESSOR_SNAPSHOT_CONTROLLER.get(key(nodeId, partitionId));
+  }
+
+  public static void removeProcessorSnapshotController(
+      String nodeId, int partitionId, SnapshotController snapshotController) {
+    PROCESSOR_SNAPSHOT_CONTROLLER.remove(key(nodeId, partitionId), snapshotController);
+  }
+
+  public static void putExporterSnapshotController(
+      String nodeId, int partitionId, SnapshotController snapshotController) {
+    EXPORTER_SNAPSHOT_CONTROLLER.put(key(nodeId, partitionId), snapshotController);
+  }
+
+  public static SnapshotController getExporterSnapshotController(String nodeId, int partitionId) {
+    return EXPORTER_SNAPSHOT_CONTROLLER.get(key(nodeId, partitionId));
+  }
+
+  public static void removeExporterSnapshotController(
+      String nodeId, int partitionId, SnapshotController snapshotController) {
+    EXPORTER_SNAPSHOT_CONTROLLER.remove(key(nodeId, partitionId), snapshotController);
   }
 
   private static String key(String nodeId, int partitionId) {

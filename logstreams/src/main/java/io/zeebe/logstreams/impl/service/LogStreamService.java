@@ -280,6 +280,11 @@ public class LogStreamService implements LogStream, Service<LogStream> {
     exporterPositionSupplier = supplier;
   }
 
+  @Override
+  public Supplier<Long> getExporterPositionSupplier() {
+    return exporterPositionSupplier;
+  }
+
   public Injector<LogBlockIndex> getLogBlockIndexInjector() {
     return logBlockIndexInjector;
   }

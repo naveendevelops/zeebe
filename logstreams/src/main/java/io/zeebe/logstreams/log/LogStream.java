@@ -124,4 +124,6 @@ public interface LogStream extends AutoCloseable {
   void removeOnCommitPositionUpdatedCondition(ActorCondition condition);
 
   void setExporterPositionSupplier(Supplier<Long> supplier);
+
+  Supplier<Long> getExporterPositionSupplier();
 }
