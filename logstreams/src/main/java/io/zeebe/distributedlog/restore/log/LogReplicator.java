@@ -16,6 +16,7 @@
 package io.zeebe.distributedlog.restore.log;
 
 import io.atomix.cluster.MemberId;
+import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.log.impl.DefaultLogReplicationRequest;
 import io.zeebe.util.ZbLogger;
@@ -25,20 +26,16 @@ import org.slf4j.Logger;
 
 public class LogReplicator implements RestoreStrategy {
   private final LogReplicationAppender appender;
-  private final LogReplicationClient client;
+  private final RestoreClient client;
   private final Executor executor;
   private final Logger logger;
 
-  public LogReplicator(
-      LogReplicationAppender appender, LogReplicationClient client, Executor executor) {
+  public LogReplicator(LogReplicationAppender appender, RestoreClient client, Executor executor) {
     this(appender, client, executor, new ZbLogger(LogReplicator.class));
   }
 
   public LogReplicator(
-      LogReplicationAppender appender,
-      LogReplicationClient client,
-      Executor executor,
-      Logger logger) {
+      LogReplicationAppender appender, RestoreClient client, Executor executor, Logger logger) {
     this.appender = appender;
     this.client = client;
     this.executor = executor;
@@ -70,7 +67,7 @@ public class LogReplicator implements RestoreStrategy {
     final LogReplicationRequest request =
         new DefaultLogReplicationRequest(from, to, includeFromPosition);
     client
-        .replicate(server, request)
+        .requestLogReplication(server, request)
         .whenCompleteAsync(
             (r, e) -> {
               if (e != null) {

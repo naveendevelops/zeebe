@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.zeebe.distributedlog.restore.log.impl;
+package io.zeebe.distributedlog.restore.impl;
 
 import io.atomix.cluster.MemberId;
-import io.zeebe.distributedlog.restore.log.LogReplicationClient;
+import io.zeebe.distributedlog.restore.RestoreClient;
+import io.zeebe.distributedlog.restore.RestoreInfoRequest;
+import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.log.LogReplicationRequest;
 import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
 import java.util.ArrayList;
@@ -25,11 +27,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public class ControllableLogReplicationClient implements LogReplicationClient {
-  private final Map<Long, CompletableFuture<LogReplicationResponse>> requests = new HashMap<>();
+public class ControllableRestoreClient implements RestoreClient {
+  private final Map<Long, CompletableFuture<LogReplicationResponse>> logReplicationRequests =
+      new HashMap<>();
 
-  public Map<Long, CompletableFuture<LogReplicationResponse>> getRequests() {
-    return requests;
+  @Override
+  public void requestLatestSnapshot(MemberId server) {
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public List<LogReplicationRequest> requestLog = new ArrayList<>();
@@ -39,23 +43,33 @@ public class ControllableLogReplicationClient implements LogReplicationClient {
   }
 
   @Override
-  public CompletableFuture<LogReplicationResponse> replicate(
+  public CompletableFuture<LogReplicationResponse> requestLogReplication(
       MemberId server, LogReplicationRequest request) {
     final CompletableFuture<LogReplicationResponse> result = new CompletableFuture<>();
-    requests.put(request.getFromPosition(), result);
+    logReplicationRequests.put(request.getFromPosition(), result);
     requestLog.add(request);
     return result;
   }
 
-  public void complete(long from, Throwable ex) {
-    requests.get(from).completeExceptionally(ex);
+  @Override
+  public CompletableFuture<RestoreInfoResponse> requestRestoreInfo(
+      MemberId server, RestoreInfoRequest request) {
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
-  public void complete(long from, LogReplicationResponse response) {
-    requests.get(from).complete(response);
+  public void completeLogReplication(long from, Throwable ex) {
+    logReplicationRequests.get(from).completeExceptionally(ex);
+  }
+
+  public void completeLogReplication(long from, LogReplicationResponse response) {
+    logReplicationRequests.get(from).complete(response);
+  }
+
+  public Map<Long, CompletableFuture<LogReplicationResponse>> getLogReplicationRequests() {
+    return logReplicationRequests;
   }
 
   public void reset() {
-    requests.clear();
+    logReplicationRequests.clear();
   }
 }

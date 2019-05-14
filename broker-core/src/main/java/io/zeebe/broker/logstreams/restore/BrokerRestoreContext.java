@@ -20,11 +20,13 @@ package io.zeebe.broker.logstreams.restore;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.zeebe.distributedlog.impl.LogstreamConfig;
 import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
-import io.zeebe.distributedlog.restore.RestoreInfoServer;
 import io.zeebe.distributedlog.restore.RestoreServer;
-import io.zeebe.distributedlog.restore.impl.DefaultRestoreInfoServerHandler;
-import io.zeebe.distributedlog.restore.log.LogReplicationServer;
-import io.zeebe.distributedlog.restore.log.impl.DefaultLogReplicationServerHandler;
+import io.zeebe.distributedlog.restore.RestoreServer.LogReplicationRequestHandler;
+import io.zeebe.distributedlog.restore.RestoreServer.RestoreInfoRequestHandler;
+import io.zeebe.distributedlog.restore.RestoreServer.SnapshotRequestHandler;
+import io.zeebe.distributedlog.restore.impl.DefaultRestoreInfoRequestHandler;
+import io.zeebe.distributedlog.restore.impl.DefaultSnapshotRequestHandler;
+import io.zeebe.distributedlog.restore.log.impl.DefaultLogReplicationRequestHandler;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.util.sched.future.CompletableActorFuture;
@@ -65,17 +67,22 @@ public class BrokerRestoreContext implements AutoCloseable {
   }
 
   public CompletableActorFuture<Void> startRestoreServer(
-      LogStream logStream, SnapshotController processorSnapshotController) {
+      LogStream logStream,
+      SnapshotController processorSnapshotController,
+      SnapshotController exporterSnapshotController) {
     final CompletableActorFuture<Void> startedFuture = new CompletableActorFuture<>();
-    final LogReplicationServer.Handler logReplicationHandler =
-        new DefaultLogReplicationServerHandler(logStream);
-    final RestoreInfoServer.Handler restoreInfoHandler =
-        new DefaultRestoreInfoServerHandler(logStream, processorSnapshotController);
+    final LogReplicationRequestHandler logReplicationHandler =
+        new DefaultLogReplicationRequestHandler(logStream);
+    final RestoreInfoRequestHandler restoreInfoHandler =
+        new DefaultRestoreInfoRequestHandler(logStream, processorSnapshotController);
+    final SnapshotRequestHandler snapshotRequestHandler =
+        new DefaultSnapshotRequestHandler(processorSnapshotController, exporterSnapshotController);
 
     this.server = restoreFactory.createServer();
     this.server
         .serve(logReplicationHandler)
         .thenCompose(nothing -> server.serve(restoreInfoHandler))
+        .thenCompose(nothing -> server.serve(snapshotRequestHandler))
         .thenAccept(startedFuture::complete);
     return startedFuture;
   }

@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.zeebe.distributedlog.restore.log;
+package io.zeebe.distributedlog.restore.impl;
 
-import io.atomix.cluster.MemberId;
-import java.util.concurrent.CompletableFuture;
+import io.zeebe.distributedlog.restore.RestoreServer.SnapshotRequestHandler;
+import io.zeebe.logstreams.spi.SnapshotController;
 
-@FunctionalInterface
-public interface LogReplicationClient {
+public class DefaultSnapshotRequestHandler implements SnapshotRequestHandler {
+  private final SnapshotController[] controllers;
 
-  /**
-   * Sends a log replication request to the given cluster member.
-   *
-   * @param server target cluster member
-   * @param request request to send
-   * @return the server response as a future
-   */
-  CompletableFuture<LogReplicationResponse> replicate(
-      MemberId server, LogReplicationRequest request);
+  public DefaultSnapshotRequestHandler(SnapshotController... controllers) {
+    this.controllers = controllers;
+  }
+
+  @Override
+  public void onSnapshotRequest(Void request) {
+    for (SnapshotController controller : controllers) {
+      controller.replicateLatestSnapshot(Runnable::run);
+    }
+  }
 }

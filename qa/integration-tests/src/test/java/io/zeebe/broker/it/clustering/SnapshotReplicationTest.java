@@ -20,10 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.atomix.cluster.MemberId;
 import io.zeebe.broker.Broker;
-import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.it.DataDeleteTest;
 import io.zeebe.broker.it.GrpcClientRule;
-import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
+import io.zeebe.broker.logstreams.restore.BrokerRestoreClient;
 import io.zeebe.client.ZeebeClient;
 import io.zeebe.engine.Loggers;
 import io.zeebe.model.bpmn.Bpmn;
@@ -161,12 +160,12 @@ public class SnapshotReplicationTest {
     // when
     clusteringRule.restartBroker(stoppedBroker.getConfig().getCluster().getNodeId());
 
-    new DefaultOnDemandSnapshotReplication(
+    new BrokerRestoreClient(
             clusteringRule.getAtomixCluster().getCommunicationService(),
-            1,
-            EngineService.PROCESSOR_NAME,
-            null)
-        .request(MemberId.from(String.valueOf(leaderNodeId)));
+            "",
+            "",
+            "snapshot-request-1")
+        .requestLatestSnapshot(MemberId.from(String.valueOf(leaderNodeId)));
 
     // then
     waitForValidSnapshotAtBroker(stoppedBroker);
