@@ -20,6 +20,8 @@ import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.logstreams.spi.SnapshotController;
 import java.util.concurrent.CompletableFuture;
 
+// TODO: handle case where not all snapshot controllers are needed, e.g. no exporter snapshot on
+// leader
 public class SnapshotRequester {
   private final RestoreClient client;
   private final SnapshotController[] snapshotControllers;
@@ -41,7 +43,7 @@ public class SnapshotRequester {
     return replicated;
   }
 
-  class DefaultSnapshotReplicationListener implements SnapshotReplicationListener {
+  static class DefaultSnapshotReplicationListener implements SnapshotReplicationListener {
     private final SnapshotController controller;
     private final CompletableFuture<Void> future;
 
