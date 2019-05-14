@@ -19,6 +19,7 @@ package io.zeebe.engine.state;
 
 import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.processor.KeyGenerator;
 import io.zeebe.protocol.Protocol;
 

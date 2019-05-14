@@ -24,7 +24,7 @@ import io.zeebe.db.impl.DbCompositeKey;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbNil;
 import io.zeebe.db.impl.DbString;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import org.agrona.DirectBuffer;
 
 public class WorkflowInstanceSubscriptionState {

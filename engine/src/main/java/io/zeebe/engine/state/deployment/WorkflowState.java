@@ -19,9 +19,9 @@ package io.zeebe.engine.state.deployment;
 
 import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.processor.KeyGenerator;
 import io.zeebe.engine.state.NextValueManager;
-import io.zeebe.engine.state.ZbColumnFamilies;
 import io.zeebe.engine.state.instance.ElementInstanceState;
 import io.zeebe.engine.state.instance.EventScopeInstanceState;
 import io.zeebe.engine.state.instance.TimerInstanceState;

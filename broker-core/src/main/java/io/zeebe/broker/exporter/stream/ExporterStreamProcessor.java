@@ -24,6 +24,7 @@ import io.zeebe.broker.exporter.record.RecordMetadataImpl;
 import io.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.processor.EventProcessor;
 import io.zeebe.engine.processor.StreamProcessor;
 import io.zeebe.engine.processor.StreamProcessorContext;
@@ -56,7 +57,7 @@ public class ExporterStreamProcessor implements StreamProcessor {
   private ActorControl actorControl;
 
   public ExporterStreamProcessor(
-      ZeebeDb<ExporterColumnFamilies> zeebeDb,
+      ZeebeDb<ZbColumnFamilies> zeebeDb,
       DbContext dbContext,
       final int partitionId,
       final Collection<ExporterDescriptor> descriptors) {

@@ -131,6 +131,7 @@ public class LogStreamBuilder {
     return this;
   }
 
+  // TODO: no longer used; fix test usages and remove
   public LogStreamBuilder indexStateStorage(StateStorage stateStorage) {
     this.stateStorage = stateStorage;
     return this;
@@ -186,10 +187,6 @@ public class LogStreamBuilder {
 
   public Duration getSnapshotPeriod() {
     return snapshotPeriod;
-  }
-
-  public StateStorage getStateStorage() {
-    return stateStorage;
   }
 
   public int getMaxSnapshots() {
@@ -276,6 +273,5 @@ public class LogStreamBuilder {
     Objects.requireNonNull(logName, "logName");
     ensureGreaterThanOrEqual("partitionId", partitionId, 0);
     ensureFalse("deviation", deviation <= 0f || deviation > 1f);
-    Objects.requireNonNull(stateStorage, "indexStateStorage");
   }
 }

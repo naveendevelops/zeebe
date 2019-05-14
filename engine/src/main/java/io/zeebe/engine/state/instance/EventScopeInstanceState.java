@@ -22,7 +22,7 @@ import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbCompositeKey;
 import io.zeebe.db.impl.DbLong;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import java.util.Collection;
 import java.util.function.BiConsumer;
 import org.agrona.DirectBuffer;

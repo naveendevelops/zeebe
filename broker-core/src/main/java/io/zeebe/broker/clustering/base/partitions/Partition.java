@@ -17,27 +17,17 @@
  */
 package io.zeebe.broker.clustering.base.partitions;
 
-import static io.zeebe.broker.exporter.ExporterManagerService.EXPORTER_PROCESSOR_ID;
-import static io.zeebe.broker.exporter.ExporterManagerService.PROCESSOR_NAME;
-
 import io.atomix.cluster.messaging.ClusterCommunicationService;
-import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.engine.EngineService;
-import io.zeebe.broker.exporter.stream.ExporterColumnFamilies;
 import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
 import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.db.ZeebeDb;
-import io.zeebe.engine.state.DefaultZeebeDbFactory;
-import io.zeebe.engine.state.StateStorageFactory;
-import io.zeebe.engine.state.replication.StateReplication;
+import io.zeebe.engine.processor.StreamProcessorService;
 import io.zeebe.logstreams.log.LogStream;
-import io.zeebe.logstreams.spi.SnapshotController;
-import io.zeebe.logstreams.state.NoneSnapshotReplication;
 import io.zeebe.logstreams.state.SnapshotReplication;
 import io.zeebe.logstreams.state.StateSnapshotController;
-import io.zeebe.logstreams.state.StateStorage;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
@@ -50,13 +40,11 @@ import org.slf4j.Logger;
 public class Partition implements Service<Partition> {
   public static final String PARTITION_NAME_FORMAT = "raft-atomix-partition-%d";
   public static final Logger LOG = Loggers.CLUSTERING_LOGGER;
-  private final ClusterEventService eventService;
   private final BrokerCfg brokerCfg;
   private final ClusterCommunicationService communicationService;
-  private SnapshotReplication processorStateReplication;
-  private SnapshotReplication exporterStateReplication;
-  private DefaultOnDemandSnapshotReplication processorSnapshotRequestServer;
-  private DefaultOnDemandSnapshotReplication exporterSnapshotRequestServer;
+
+  private SnapshotReplication stateReplication;
+  private DefaultOnDemandSnapshotReplication snapshotRequestServer;
   private ExecutorService executor;
 
   public static String getPartitionName(final int partitionId) {
@@ -64,92 +52,59 @@ public class Partition implements Service<Partition> {
   }
 
   private final Injector<LogStream> logStreamInjector = new Injector<>();
-  private final Injector<StateStorageFactory> stateStorageFactoryInjector = new Injector<>();
+  private final Injector<StateSnapshotControllerService> snapshotControllerServiceInjector =
+      new Injector<>();
+  private final Injector<StreamProcessorService> streamProcessorServiceInjector = new Injector<>();
+
   private final int partitionId;
   private final RaftState state;
 
   private LogStream logStream;
-  private SnapshotController exporterSnapshotController;
-  private StateSnapshotController processorSnapshotController;
+  private StateSnapshotController snapshotController;
 
   public Partition(
       BrokerCfg brokerCfg,
-      ClusterEventService eventService,
       ClusterCommunicationService communicationService,
       final int partitionId,
       final RaftState state) {
     this.brokerCfg = brokerCfg;
     this.partitionId = partitionId;
     this.state = state;
-    this.eventService = eventService;
     this.communicationService = communicationService;
   }
 
   @Override
   public void start(final ServiceStartContext startContext) {
-    final boolean noReplication = brokerCfg.getCluster().getReplicationFactor() == 1;
-
-    logStream = logStreamInjector.getValue();
-    final StateStorageFactory stateStorageFactory = stateStorageFactoryInjector.getValue();
-
-    final String exporterProcessorName = PROCESSOR_NAME;
-    final StateStorage exporterStateStorage =
-        stateStorageFactory.create(EXPORTER_PROCESSOR_ID, exporterProcessorName);
-    exporterStateReplication =
-        noReplication
-            ? new NoneSnapshotReplication()
-            : new StateReplication(eventService, partitionId, exporterProcessorName);
-    exporterSnapshotController =
-        new StateSnapshotController(
-            DefaultZeebeDbFactory.defaultFactory(ExporterColumnFamilies.class),
-            exporterStateStorage,
-            exporterStateReplication,
-            brokerCfg.getData().getMaxSnapshots());
-
     final String streamProcessorName = EngineService.PROCESSOR_NAME;
-    final StateStorage stateStorage = stateStorageFactory.create(partitionId, streamProcessorName);
-    processorStateReplication =
-        noReplication
-            ? new NoneSnapshotReplication()
-            : new StateReplication(eventService, partitionId, streamProcessorName);
+    logStream = logStreamInjector.getValue();
 
-    processorSnapshotController =
-        new StateSnapshotController(
-            DefaultZeebeDbFactory.DEFAULT_DB_FACTORY,
-            stateStorage,
-            processorStateReplication,
-            brokerCfg.getData().getMaxSnapshots());
+    // TODO: should this be closed here or in its service (analyze dependencies)
+    this.snapshotController = snapshotControllerServiceInjector.getValue().getSnapshotController();
 
     if (state == RaftState.FOLLOWER) {
       logStream.setExporterPositionSupplier(this::getLowestReplicatedExportedPosition);
 
-      processorSnapshotController.consumeReplicatedSnapshots(logStream::delete);
-      exporterSnapshotController.consumeReplicatedSnapshots(pos -> {});
+      this.snapshotController.consumeReplicatedSnapshots(logStream::delete);
     } else {
       executor =
           Executors.newSingleThreadExecutor(
               (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
-      processorSnapshotRequestServer =
+      snapshotRequestServer =
           new DefaultOnDemandSnapshotReplication(
               communicationService, partitionId, streamProcessorName, executor);
-      processorSnapshotRequestServer.serve(
+      snapshotRequestServer.serve(
           request -> {
             LOG.info("Received snapshot replication request for partition {}", partitionId);
-            processorSnapshotController.replicateLatestSnapshot(r -> r.run());
+            this.snapshotController.replicateLatestSnapshot(Runnable::run);
           });
-      exporterSnapshotRequestServer =
-          new DefaultOnDemandSnapshotReplication(
-              communicationService, partitionId, exporterProcessorName, executor);
-      exporterSnapshotRequestServer.serve(
-          request -> exporterSnapshotController.replicateLatestSnapshot(r -> r.run()));
     }
   }
 
   private long getLowestReplicatedExportedPosition() {
     try {
-      if (exporterSnapshotController.getValidSnapshotsCount() > 0) {
-        exporterSnapshotController.recover();
-        final ZeebeDb zeebeDb = exporterSnapshotController.openDb();
+      if (snapshotController.getValidSnapshotsCount() > 0) {
+        snapshotController.recover();
+        final ZeebeDb zeebeDb = snapshotController.openDb();
         final ExporterStreamProcessorState exporterState =
             new ExporterStreamProcessorState(zeebeDb, zeebeDb.createContext());
 
@@ -171,7 +126,7 @@ public class Partition implements Service<Partition> {
           e);
     } finally {
       try {
-        exporterSnapshotController.close();
+        snapshotController.close();
       } catch (Exception e) {
         LOG.error("Unexpected error occurred while closing the DB.", e);
       }
@@ -182,13 +137,9 @@ public class Partition implements Service<Partition> {
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    processorStateReplication.close();
-    exporterStateReplication.close();
-    if (processorSnapshotRequestServer != null) {
-      processorSnapshotRequestServer.close();
-    }
-    if (exporterSnapshotRequestServer != null) {
-      exporterSnapshotRequestServer.close();
+    stateReplication.close();
+    if (snapshotRequestServer != null) {
+      snapshotRequestServer.close();
     }
     if (executor != null) {
       executor.shutdown();
@@ -204,12 +155,8 @@ public class Partition implements Service<Partition> {
     return partitionId;
   }
 
-  public SnapshotController getExporterSnapshotController() {
-    return exporterSnapshotController;
-  }
-
-  public StateSnapshotController getProcessorSnapshotController() {
-    return processorSnapshotController;
+  public StateSnapshotController getSnapshotController() {
+    return snapshotController;
   }
 
   public RaftState getState() {
@@ -224,7 +171,7 @@ public class Partition implements Service<Partition> {
     return logStreamInjector;
   }
 
-  public Injector<StateStorageFactory> getStateStorageFactoryInjector() {
-    return stateStorageFactoryInjector;
+  public Injector<StreamProcessorService> getStreamProcessorServiceInjector() {
+    return streamProcessorServiceInjector;
   }
 }

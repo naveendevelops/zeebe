@@ -23,11 +23,11 @@ import io.zeebe.broker.engine.StreamProcessorServiceFactory;
 import io.zeebe.broker.exporter.jar.ExporterJarLoadException;
 import io.zeebe.broker.exporter.repo.ExporterLoadException;
 import io.zeebe.broker.exporter.repo.ExporterRepository;
-import io.zeebe.broker.exporter.stream.ExporterColumnFamilies;
 import io.zeebe.broker.exporter.stream.ExporterStreamProcessor;
 import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
 import io.zeebe.broker.system.configuration.ExporterCfg;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
@@ -88,7 +88,8 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
   }
 
   private void startExporter(ServiceName<Partition> partitionName, Partition partition) {
-    final SnapshotController snapshotController = partition.getExporterSnapshotController();
+    // TODO: validate this
+    final SnapshotController snapshotController = partition.getSnapshotController();
     this.partition = partition;
 
     if (exporterRepository.getExporters().isEmpty()) {
@@ -127,8 +128,8 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
 
     try {
       // TODO (saig0): don't open and recover the latest snapshot in the service - #2353
-      final long snapshotPosition = snapshotController.recover();
-      final ZeebeDb<ExporterColumnFamilies> db = snapshotController.openDb();
+      // final long snapshotPosition = snapshotController.recover();
+      final ZeebeDb<ZbColumnFamilies> db = snapshotController.openDb();
       final ExporterStreamProcessorState state =
           new ExporterStreamProcessorState(db, db.createContext());
 
@@ -142,16 +143,10 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
           });
 
       // TODO (saig0): don't take a new snapshot in the service - #2353
-      snapshotController.takeSnapshot(snapshotPosition + 1);
+      // snapshotController.takeSnapshot(snapshotPosition + 1);
 
     } catch (Exception e) {
       LOG.error("Failed to remove exporters from state", e);
-    } finally {
-      try {
-        snapshotController.close();
-      } catch (Exception e) {
-        LOG.error("Unexpected exception happened on closing snapshot controller.", e);
-      }
     }
   }
 

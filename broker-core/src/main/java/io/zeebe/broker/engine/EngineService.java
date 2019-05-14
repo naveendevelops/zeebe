@@ -95,7 +95,7 @@ public class EngineService implements Service<EngineService> {
             .processorName(PROCESSOR_NAME);
 
     streamProcessorServiceBuilder
-        .snapshotController(partition.getProcessorSnapshotController())
+        .snapshotController(partition.getSnapshotController())
         .streamProcessorFactory(
             (actor, zeebeDb, dbContext) -> {
               final ZeebeState zeebeState = new ZeebeState(partitionId, zeebeDb, dbContext);

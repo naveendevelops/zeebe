@@ -26,7 +26,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
-import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.clustering.base.partitions.Partition;
 import io.zeebe.broker.clustering.base.partitions.RaftState;
 import io.zeebe.distributedlog.DistributedLogstreamService;
@@ -189,7 +188,6 @@ public class ClientApiMessageHandlerTest {
     final Partition partition =
         new Partition(
             null,
-            mock(ClusterEventService.class),
             mock(ClusterCommunicationService.class),
             LOG_STREAM_PARTITION_ID,
             RaftState.LEADER) {

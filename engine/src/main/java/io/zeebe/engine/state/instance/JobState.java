@@ -25,7 +25,7 @@ import io.zeebe.db.impl.DbCompositeKey;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbNil;
 import io.zeebe.db.impl.DbString;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.protocol.impl.record.value.job.JobRecord;
 import io.zeebe.util.EnsureUtil;
 import java.util.function.BiFunction;

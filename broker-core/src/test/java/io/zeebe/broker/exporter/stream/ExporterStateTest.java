@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.test.util.AutoCloseableRule;
 import java.io.File;
@@ -42,12 +43,12 @@ public class ExporterStateTest {
   @Rule
   public final RuleChain chain = RuleChain.outerRule(temporaryFolder).around(autoCloseableRule);
 
-  private ZeebeDb<ExporterColumnFamilies> db;
+  private ZeebeDb<ZbColumnFamilies> db;
 
   @Before
   public void setup() throws Exception {
     final File dbDirectory = temporaryFolder.newFolder();
-    db = DefaultZeebeDbFactory.defaultFactory(ExporterColumnFamilies.class).createDb(dbDirectory);
+    db = DefaultZeebeDbFactory.defaultFactory(ZbColumnFamilies.class).createDb(dbDirectory);
     state = new ExporterStreamProcessorState(db, db.createContext());
   }
 

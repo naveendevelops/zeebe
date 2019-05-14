@@ -21,8 +21,8 @@ import io.zeebe.db.ColumnFamily;
 import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbLong;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.processor.workflow.deployment.distribute.PendingDeploymentDistribution;
-import io.zeebe.engine.state.ZbColumnFamilies;
 import java.util.function.ObjLongConsumer;
 import org.agrona.concurrent.UnsafeBuffer;
 

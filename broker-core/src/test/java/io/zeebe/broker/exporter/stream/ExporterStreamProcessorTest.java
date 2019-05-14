@@ -31,6 +31,7 @@ import io.zeebe.broker.exporter.util.PojoConfigurationExporter;
 import io.zeebe.broker.exporter.util.PojoConfigurationExporter.PojoExporterConfiguration;
 import io.zeebe.broker.util.StreamProcessorControl;
 import io.zeebe.broker.util.StreamProcessorRule;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.Loggers;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.exporter.api.context.Context;
@@ -63,7 +64,7 @@ public class ExporterStreamProcessorTest {
   @Rule
   public StreamProcessorRule rule =
       new StreamProcessorRule(
-          PARTITION_ID, DefaultZeebeDbFactory.defaultFactory(ExporterColumnFamilies.class));
+          PARTITION_ID, DefaultZeebeDbFactory.defaultFactory(ZbColumnFamilies.class));
 
   private final List<ControlledTestExporter> exporters = new ArrayList<>();
   private final List<ExporterDescriptor> exporterDescriptors = new ArrayList<>();

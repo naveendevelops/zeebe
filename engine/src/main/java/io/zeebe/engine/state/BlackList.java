@@ -22,6 +22,7 @@ import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbNil;
+import io.zeebe.db.impl.ZbColumnFamilies;
 
 public class BlackList {
 

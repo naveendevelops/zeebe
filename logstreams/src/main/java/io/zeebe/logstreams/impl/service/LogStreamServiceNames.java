@@ -23,6 +23,7 @@ import io.zeebe.logstreams.impl.LogStorageAppender;
 import io.zeebe.logstreams.impl.log.index.LogBlockIndex;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
+import io.zeebe.logstreams.state.StateSnapshotController;
 import io.zeebe.servicecontainer.ServiceName;
 
 public class LogStreamServiceNames {
@@ -78,5 +79,12 @@ public class LogStreamServiceNames {
   public static final ServiceName<Void> logStorageAppenderRootService(String logName) {
     return ServiceName.newServiceName(
         String.format("logstream.%s.storage.appender-root", logName), Void.class);
+  }
+
+  public static ServiceName<StateSnapshotController> stateSnapshotControllerServiceName(
+      final String logName) {
+    return ServiceName.newServiceName(
+        String.format("logstream.%s.storage.snapshot.controller", logName),
+        StateSnapshotController.class);
   }
 }

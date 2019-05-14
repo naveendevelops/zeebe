@@ -22,6 +22,7 @@ import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbString;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import java.util.function.BiConsumer;
 import org.agrona.DirectBuffer;
 import org.agrona.collections.LongArrayList;
@@ -33,12 +34,11 @@ public class ExporterStreamProcessorState {
   private final DbLong position;
   private final ColumnFamily<DbString, DbLong> exporterPositionColumnFamily;
 
-  public ExporterStreamProcessorState(
-      ZeebeDb<ExporterColumnFamilies> zeebeDb, DbContext dbContext) {
+  public ExporterStreamProcessorState(ZeebeDb<ZbColumnFamilies> zeebeDb, DbContext dbContext) {
     exporterId = new DbString();
     position = new DbLong();
     exporterPositionColumnFamily =
-        zeebeDb.createColumnFamily(ExporterColumnFamilies.DEFAULT, dbContext, exporterId, position);
+        zeebeDb.createColumnFamily(ZbColumnFamilies.EXPORTER, dbContext, exporterId, position);
   }
 
   public void setPosition(final String exporterId, final long position) {

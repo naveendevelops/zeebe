@@ -24,7 +24,7 @@ import io.zeebe.db.impl.DbCompositeKey;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbNil;
 import io.zeebe.db.impl.DbString;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.state.instance.UnpackedObjectValue;
 import io.zeebe.protocol.impl.record.value.message.MessageStartEventSubscriptionRecord;
 import org.agrona.DirectBuffer;

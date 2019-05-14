@@ -45,6 +45,7 @@ import io.zeebe.broker.exporter.repo.ExporterDescriptor;
 import io.zeebe.broker.exporter.util.ControlledTestExporter;
 import io.zeebe.broker.util.StreamProcessorRule;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.exporter.api.record.Record;
 import io.zeebe.exporter.api.record.RecordValue;
@@ -114,7 +115,7 @@ public class ExporterRecordTest {
   @Rule
   public StreamProcessorRule rule =
       new StreamProcessorRule(
-          PARTITION_ID, DefaultZeebeDbFactory.defaultFactory(ExporterColumnFamilies.class));
+          PARTITION_ID, DefaultZeebeDbFactory.defaultFactory(ZbColumnFamilies.class));
 
   private ControlledTestExporter exporter;
 
@@ -552,7 +553,7 @@ public class ExporterRecordTest {
     assertThat(actualRecord).hasValue(expectedRecordValue);
   }
 
-  private ExporterStreamProcessor createStreamProcessor(ZeebeDb<ExporterColumnFamilies> db) {
+  private ExporterStreamProcessor createStreamProcessor(ZeebeDb<ZbColumnFamilies> db) {
     final List<ExporterDescriptor> exporterDescriptors =
         Collections.singletonList(createMockedExporter());
 

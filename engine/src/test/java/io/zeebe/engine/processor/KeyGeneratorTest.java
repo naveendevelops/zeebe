@@ -20,7 +20,7 @@ package io.zeebe.engine.processor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.zeebe.db.ZeebeDb;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.engine.state.ZeebeState;
 import io.zeebe.engine.util.ZeebeStateRule;
 import io.zeebe.protocol.Protocol;

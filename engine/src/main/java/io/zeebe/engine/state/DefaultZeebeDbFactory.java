@@ -18,6 +18,7 @@
 package io.zeebe.engine.state;
 
 import io.zeebe.db.ZeebeDbFactory;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.db.impl.rocksdb.ZeebeRocksDbFactory;
 
 public final class DefaultZeebeDbFactory {

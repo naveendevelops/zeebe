@@ -22,6 +22,7 @@ import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbLong;
 import io.zeebe.db.impl.DbString;
+import io.zeebe.db.impl.ZbColumnFamilies;
 
 public class NextValueManager {
 

@@ -21,7 +21,7 @@ import io.zeebe.db.ColumnFamily;
 import io.zeebe.db.DbContext;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.impl.DbLong;
-import io.zeebe.engine.state.ZbColumnFamilies;
+import io.zeebe.db.impl.ZbColumnFamilies;
 import io.zeebe.protocol.impl.record.value.incident.IncidentRecord;
 import java.util.function.ObjLongConsumer;
 
