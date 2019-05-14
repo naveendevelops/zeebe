@@ -18,14 +18,10 @@ package io.zeebe.logstreams.state;
 import io.atomix.cluster.MemberId;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.logstreams.spi.SnapshotController;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class SnapshotRequester {
-
   private final RestoreClient client;
-  private CompletableFuture<Long> replicationFuture;
-  private Map<SnapshotController, Long> futures;
   private final SnapshotController[] snapshotControllers;
 
   public SnapshotRequester(RestoreClient client, SnapshotController[] snapshotControllers) {
