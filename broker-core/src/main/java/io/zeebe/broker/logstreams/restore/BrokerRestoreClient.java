@@ -31,18 +31,21 @@ public class BrokerRestoreClient implements RestoreClient {
   private final ClusterCommunicationService communicationService;
   private final String logReplicationTopic;
   private final String restoreInfoTopic;
+  private final String snapshotRequestTopic;
 
   public BrokerRestoreClient(
       ClusterCommunicationService communicationService,
       String logReplicationTopic,
-      String restoreInfoTopic) {
+      String restoreInfoTopic,
+      String snapshotRequestTopic) {
     this.communicationService = communicationService;
     this.logReplicationTopic = logReplicationTopic;
     this.restoreInfoTopic = restoreInfoTopic;
+    this.snapshotRequestTopic = snapshotRequestTopic;
   }
 
   @Override
-  public CompletableFuture<LogReplicationResponse> replicate(
+  public CompletableFuture<LogReplicationResponse> requestLogReplication(
       MemberId server, LogReplicationRequest request) {
     return communicationService.send(
         logReplicationTopic,
@@ -63,5 +66,10 @@ public class BrokerRestoreClient implements RestoreClient {
         SbeRestoreInfoResponse::new,
         server,
         Duration.ofSeconds(5));
+  }
+
+  @Override
+  public void requestLatestSnapshot(MemberId server) {
+    communicationService.unicast(snapshotRequestTopic, null, server);
   }
 }

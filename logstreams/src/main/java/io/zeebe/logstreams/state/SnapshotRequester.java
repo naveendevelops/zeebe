@@ -16,38 +16,56 @@
 package io.zeebe.logstreams.state;
 
 import io.atomix.cluster.MemberId;
+import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.logstreams.spi.SnapshotController;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-public class SnapshotRequester implements SnapshotReplicationListener {
+public class SnapshotRequester {
 
-  private final OnDemandSnapshotReplication client;
+  private final RestoreClient client;
   private CompletableFuture<Long> replicationFuture;
-  private final SnapshotController snapshotController;
+  private Map<SnapshotController, Long> futures;
+  private final SnapshotController[] snapshotControllers;
 
-  public SnapshotRequester(
-      OnDemandSnapshotReplication client, SnapshotController snapshotController) {
+  public SnapshotRequester(RestoreClient client, SnapshotController[] snapshotControllers) {
     this.client = client;
-    this.snapshotController = snapshotController;
+    this.snapshotControllers = snapshotControllers;
   }
 
-  public CompletableFuture<Long> getLatestSnapshotFrom(MemberId server) {
-    replicationFuture = new CompletableFuture<>();
-    snapshotController.addListener(this);
-    client.request(server);
-    return replicationFuture;
+  public CompletableFuture<Void> getLatestSnapshotsFrom(MemberId server) {
+    CompletableFuture<Void> replicated = CompletableFuture.completedFuture(null);
+    for (SnapshotController controller : snapshotControllers) {
+      final CompletableFuture<Void> future = new CompletableFuture<>();
+      controller.addListener(new DefaultSnapshotReplicationListener(controller, future));
+      replicated = replicated.thenCompose((nothing) -> future);
+    }
+
+    client.requestLatestSnapshot(server);
+    return replicated;
   }
 
-  @Override
-  public void onReplicated(long snapshotPosition) {
-    replicationFuture.complete(snapshotPosition);
-    snapshotController.removeListener(this);
-  }
+  class DefaultSnapshotReplicationListener implements SnapshotReplicationListener {
+    private final SnapshotController controller;
+    private final CompletableFuture<Void> future;
 
-  @Override
-  public void onFailure(long snapshotPosition) {
-    replicationFuture.completeExceptionally(new FailedSnapshotReplication(snapshotPosition));
-    snapshotController.enableRetrySnapshot(snapshotPosition);
-    snapshotController.removeListener(this);
+    DefaultSnapshotReplicationListener(
+        SnapshotController controller, CompletableFuture<Void> future) {
+      this.controller = controller;
+      this.future = future;
+    }
+
+    @Override
+    public void onReplicated(long snapshotPosition) {
+      future.complete(null);
+      controller.removeListener(this);
+    }
+
+    @Override
+    public void onFailure(long snapshotPosition) {
+      future.completeExceptionally(new FailedSnapshotReplication(snapshotPosition));
+      controller.enableRetrySnapshot(snapshotPosition);
+      controller.removeListener(this);
+    }
   }
 }

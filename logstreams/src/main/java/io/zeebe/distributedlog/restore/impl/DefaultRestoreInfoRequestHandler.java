@@ -18,17 +18,17 @@ package io.zeebe.distributedlog.restore.impl;
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse.ReplicationTarget;
-import io.zeebe.distributedlog.restore.RestoreInfoServer;
+import io.zeebe.distributedlog.restore.RestoreServer.RestoreInfoRequestHandler;
 import io.zeebe.logstreams.log.BufferedLogStreamReader;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.log.LogStreamReader;
 import io.zeebe.logstreams.spi.SnapshotController;
 
-public class DefaultRestoreInfoServerHandler implements RestoreInfoServer.Handler {
+public class DefaultRestoreInfoRequestHandler implements RestoreInfoRequestHandler {
   private final SnapshotController snapshotController;
   private final LogStreamReader reader;
 
-  public DefaultRestoreInfoServerHandler(
+  public DefaultRestoreInfoRequestHandler(
       LogStream logStream, SnapshotController snapshotController) {
     this.reader = new BufferedLogStreamReader(logStream);
     this.snapshotController = snapshotController;

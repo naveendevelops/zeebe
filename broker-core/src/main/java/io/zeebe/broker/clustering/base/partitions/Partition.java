@@ -27,7 +27,6 @@ import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.exporter.stream.ExporterColumnFamilies;
 import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
 import io.zeebe.broker.logstreams.restore.BrokerRestoreContext;
-import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
@@ -43,8 +42,6 @@ import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 
 /** Service representing a partition. */
@@ -58,9 +55,6 @@ public class Partition implements Service<Partition> {
 
   private SnapshotReplication processorStateReplication;
   private SnapshotReplication exporterStateReplication;
-  private DefaultOnDemandSnapshotReplication processorSnapshotRequestServer;
-  private DefaultOnDemandSnapshotReplication exporterSnapshotRequestServer;
-  private ExecutorService executor;
 
   public static String getPartitionName(final int partitionId) {
     return String.format(PARTITION_NAME_FORMAT, partitionId);
@@ -131,23 +125,8 @@ public class Partition implements Service<Partition> {
       processorSnapshotController.consumeReplicatedSnapshots(logStream::delete);
       exporterSnapshotController.consumeReplicatedSnapshots(pos -> {});
     } else {
-      executor =
-          Executors.newSingleThreadExecutor(
-              (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
-      processorSnapshotRequestServer =
-          new DefaultOnDemandSnapshotReplication(
-              communicationService, partitionId, streamProcessorName, executor);
-      processorSnapshotRequestServer.serve(
-          request -> {
-            LOG.info("Received snapshot replication request for partition {}", partitionId);
-            processorSnapshotController.replicateLatestSnapshot(r -> r.run());
-          });
-      exporterSnapshotRequestServer =
-          new DefaultOnDemandSnapshotReplication(
-              communicationService, partitionId, exporterProcessorName, executor);
-      exporterSnapshotRequestServer.serve(
-          request -> exporterSnapshotController.replicateLatestSnapshot(r -> r.run()));
-      restoreContext.startRestoreServer(logStream, processorSnapshotController);
+      restoreContext.startRestoreServer(
+          logStream, processorSnapshotController, exporterSnapshotController);
     }
   }
 
@@ -190,18 +169,6 @@ public class Partition implements Service<Partition> {
   public void stop(ServiceStopContext stopContext) {
     processorStateReplication.close();
     exporterStateReplication.close();
-
-    if (processorSnapshotRequestServer != null) {
-      processorSnapshotRequestServer.close();
-    }
-
-    if (exporterSnapshotRequestServer != null) {
-      exporterSnapshotRequestServer.close();
-    }
-
-    if (executor != null) {
-      executor.shutdown();
-    }
 
     if (state == RaftState.LEADER) {
       restoreContext.stopRestoreServer();
