@@ -37,7 +37,9 @@ public class DefaultRestoreInfoRequestHandler implements RestoreInfoRequestHandl
   @Override
   public RestoreInfoResponse onRestoreInfoRequest(RestoreInfoRequest request) {
     final ReplicationTarget target;
-    if (snapshotController.getLastValidSnapshotPosition() >= request.getLatestLocalPosition()) {
+    final long lastValidSnapshotPosition = snapshotController.getLastValidSnapshotPosition();
+    if (lastValidSnapshotPosition > -1
+        && lastValidSnapshotPosition >= request.getLatestLocalPosition()) {
       target = RestoreInfoResponse.ReplicationTarget.SNAPSHOT;
     } else if (reader.seek(request.getLatestLocalPosition()) && reader.hasNext()) {
       target = RestoreInfoResponse.ReplicationTarget.EVENTS;
