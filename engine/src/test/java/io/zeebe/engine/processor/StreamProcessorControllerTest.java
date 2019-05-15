@@ -99,6 +99,7 @@ public class StreamProcessorControllerTest {
   private ActorFuture<Void> openedFuture;
   private CountDownLatch processorCreated;
   private StateStorage stateStorage;
+  private AsyncSnapshotDirector asyncSnapshotDirector;
 
   @Before
   public void setup() throws Exception {
@@ -113,6 +114,7 @@ public class StreamProcessorControllerTest {
     // when
     writeEventAndWaitUntilProcessed(EVENT_1);
 
+    asyncSnapshotDirector.close();
     streamProcessorController.closeAsync().join();
 
     // then
@@ -125,7 +127,6 @@ public class StreamProcessorControllerTest {
     inOrder.verify(eventProcessor, times(1)).executeSideEffects();
 
     inOrder.verify(streamProcessor, times(1)).onClose();
-    inOrder.verify(snapshotController, times(1)).close();
 
     inOrder.verifyNoMoreInteractions();
   }
@@ -152,6 +153,7 @@ public class StreamProcessorControllerTest {
     // when
     writer.writeEvent(EVENT_1);
     latch.await();
+    asyncSnapshotDirector.close();
     streamProcessorController.closeAsync().join();
 
     // then
@@ -160,7 +162,6 @@ public class StreamProcessorControllerTest {
     inOrder.verify(streamProcessor, atLeast(2)).onEvent(any());
 
     inOrder.verify(streamProcessor, times(1)).onClose();
-    inOrder.verify(snapshotController, times(1)).close();
 
     inOrder.verifyNoMoreInteractions();
   }
@@ -174,6 +175,7 @@ public class StreamProcessorControllerTest {
 
     // when
     writeEventAndWaitUntilProcessedOrFailed(EVENT_1);
+    asyncSnapshotDirector.close();
     streamProcessorController.closeAsync().join();
 
     // then
@@ -187,7 +189,6 @@ public class StreamProcessorControllerTest {
     inOrder.verify(eventProcessor, times(1)).executeSideEffects();
 
     inOrder.verify(streamProcessor, times(1)).onClose();
-    inOrder.verify(snapshotController, times(1)).close();
 
     inOrder.verifyNoMoreInteractions();
   }
@@ -447,6 +448,7 @@ public class StreamProcessorControllerTest {
     final long lastEventPosition = writeEventAndWaitUntilProcessed(EVENT_1);
 
     latch.await();
+    asyncSnapshotDirector.close();
     streamProcessorController.closeAsync().join();
 
     // then
@@ -720,6 +722,17 @@ public class StreamProcessorControllerTest {
     openedFuture = null;
 
     streamProcessorController = streamProcessorService.getController();
+
+    asyncSnapshotDirector =
+        new AsyncSnapshotDirector(
+            PROCESSOR_NAME,
+            streamProcessorController,
+            snapshotController,
+            logStreamRule.getLogStream(),
+            SNAPSHOT_INTERVAL,
+            MAX_SNAPSHOTS);
+
+    logStreamRule.getActorScheduler().submitActor(asyncSnapshotDirector);
   }
 
   private StreamProcessor createStreamProcessor(ZeebeDb zeebeDb, ActorFuture<Void> openFuture) {

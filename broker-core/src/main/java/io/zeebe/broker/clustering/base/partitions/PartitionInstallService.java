@@ -266,6 +266,7 @@ public class PartitionInstallService extends Actor
         .dependency(
             streamProcessorService(logName, EngineService.PROCESSOR_NAME),
             partition.getStreamProcessorServiceInjector())
+        .dependency(snapshotControllerServiceName, partition.getSnapshotControllerInjector())
         .dependency(openLogStreamServiceName)
         .dependency(logStreamServiceName, partition.getLogStreamInjector())
         .group(LEADER_PARTITION_GROUP_NAME)
@@ -284,6 +285,7 @@ public class PartitionInstallService extends Actor
     return startContext
         .createService(followerPartitionServiceName, partition)
         .dependency(logStreamServiceName, partition.getLogStreamInjector())
+        .dependency(snapshotControllerServiceName, partition.getSnapshotControllerInjector())
         .group(FOLLOWER_PARTITION_GROUP_NAME)
         .install();
   }

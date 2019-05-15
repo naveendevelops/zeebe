@@ -33,6 +33,7 @@ import io.zeebe.logstreams.impl.service.LogStreamServiceNames;
 import io.zeebe.logstreams.log.BufferedLogStreamReader;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.LogStorage;
+import io.zeebe.logstreams.state.StateStorage;
 import io.zeebe.servicecontainer.ServiceContainer;
 import java.io.File;
 import java.lang.reflect.Field;
@@ -126,7 +127,10 @@ public class DefaultDistributedLogstreamService
           LogstreamConfig.getConfig(localMemberId, partitionId).join();
 
       final File logDirectory = config.getLogDirectory();
+      final File snapshotDirectory = config.getSnapshotsDirectory();
+      final File blockIndexDirectory = config.getBlockIndexDirectory();
 
+      final StateStorage stateStorage = new StateStorage(blockIndexDirectory, snapshotDirectory);
       logStream =
           LogStreams.createFsLogStream(partitionId)
               .logDirectory(logDirectory.getAbsolutePath())
@@ -134,6 +138,7 @@ public class DefaultDistributedLogstreamService
               .indexBlockSize((int) config.getIndexBlockSize())
               .logName(logServiceName)
               .serviceContainer(serviceContainer)
+              .indexStateStorage(stateStorage)
               .build()
               .join();
     }

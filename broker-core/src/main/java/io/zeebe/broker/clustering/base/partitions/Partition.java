@@ -55,8 +55,7 @@ public class Partition implements Service<Partition> {
   }
 
   private final Injector<LogStream> logStreamInjector = new Injector<>();
-  private final Injector<StateSnapshotControllerService> snapshotControllerServiceInjector =
-      new Injector<>();
+  private final Injector<StateSnapshotController> snapshotControllerInjector = new Injector<>();
   private final Injector<StreamProcessorService> streamProcessorServiceInjector = new Injector<>();
 
   private final int partitionId;
@@ -82,7 +81,7 @@ public class Partition implements Service<Partition> {
     logStream = logStreamInjector.getValue();
 
     // TODO: should this be closed here or in its service (analyze dependencies)
-    this.snapshotController = snapshotControllerServiceInjector.getValue().getSnapshotController();
+    this.snapshotController = snapshotControllerInjector.getValue();
 
     if (state == RaftState.FOLLOWER) {
       logStream.setExporterPositionSupplier(this::getLowestReplicatedExportedPosition);
@@ -193,5 +192,9 @@ public class Partition implements Service<Partition> {
 
   public Injector<StreamProcessorService> getStreamProcessorServiceInjector() {
     return streamProcessorServiceInjector;
+  }
+
+  public Injector<StateSnapshotController> getSnapshotControllerInjector() {
+    return snapshotControllerInjector;
   }
 }

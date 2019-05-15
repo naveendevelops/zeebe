@@ -275,9 +275,7 @@ public class AsyncSnapshotingTest {
     lastProcessedPosition = 26L;
     lastWrittenPosition = 27L;
 
-    asyncSnapshotDirector
-        .enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition)
-        .join();
+    asyncSnapshotDirector.enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition);
 
     // then
     verify(snapshotController, TIMEOUT.times(1)).takeSnapshot(lastProcessedPosition);
@@ -300,9 +298,7 @@ public class AsyncSnapshotingTest {
     verify(snapshotController, TIMEOUT).moveValidSnapshot(lastProcessedPosition);
 
     // when
-    asyncSnapshotDirector
-        .enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition)
-        .join();
+    asyncSnapshotDirector.enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition);
 
     // then
     verify(snapshotController, never()).takeSnapshot(lastProcessedPosition);
@@ -322,9 +318,7 @@ public class AsyncSnapshotingTest {
     logStreamRule.setCommitPosition(commitPosition);
 
     // when
-    asyncSnapshotDirector
-        .enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition)
-        .join();
+    asyncSnapshotDirector.enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition);
 
     // then
     verify(snapshotController, never()).takeSnapshot(lastProcessedPosition);
@@ -362,6 +356,7 @@ public class AsyncSnapshotingTest {
     // then
     inOrder.verify(snapshotController, TIMEOUT).getLastValidSnapshotPosition();
     inOrder.verify(mockStreamProcessorController, TIMEOUT).getLastProcessedPositionAsync();
+
     inOrder.verifyNoMoreInteractions();
   }
 }

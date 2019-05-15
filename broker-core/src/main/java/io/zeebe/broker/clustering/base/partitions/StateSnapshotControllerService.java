@@ -112,10 +112,6 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
     return snapshotController;
   }
 
-  public StateSnapshotController getSnapshotController() {
-    return snapshotController;
-  }
-
   public Injector<StateStorageFactory> getStateStorageFactoryInjector() {
     return stateStorageFactoryInjector;
   }

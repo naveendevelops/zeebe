@@ -24,7 +24,6 @@ import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.ActorCondition;
 import io.zeebe.util.sched.SchedulingHints;
 import io.zeebe.util.sched.future.ActorFuture;
-import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.time.Duration;
 import org.slf4j.Logger;
 
@@ -114,35 +113,33 @@ public class AsyncSnapshotDirector extends Actor {
     logStream.removeOnCommitPositionUpdatedCondition(commitCondition);
 
     try {
-      enforceSnapshotCreation(
-          streamProcessorController.getLastWrittenPositionAsync().get(),
-          streamProcessorController.getLastProcessedPositionAsync().get());
+      actor.runOnCompletion(
+          streamProcessorController.getLastWrittenPositionAsync(),
+          (writtenPosition, e1) ->
+              actor.runOnCompletion(
+                  streamProcessorController.getLastProcessedPositionAsync(),
+                  (processedPosition, e2) ->
+                      enforceSnapshotCreation(writtenPosition, processedPosition)));
     } catch (Exception e) {
       LOG.error("Unexpected error occurred while taking snapshot on closing.", e);
     }
   }
 
-  public ActorFuture<Void> enforceSnapshotCreation(
+  public void enforceSnapshotCreation(
       final long lastWrittenPosition, final long lastProcessedPosition) {
-    final ActorFuture<Void> snapshotCreation = new CompletableActorFuture<>();
-    actor.call(
-        () -> {
-          final long commitPosition = logStream.getCommitPosition();
+    final long commitPosition = logStream.getCommitPosition();
 
-          if (!pendingSnapshot
-              && commitPosition >= lastWrittenPosition
-              && lastProcessedPosition > lastValidSnapshotPosition) {
+    if (!pendingSnapshot
+        && commitPosition >= lastWrittenPosition
+        && lastProcessedPosition > lastValidSnapshotPosition) {
 
-            LOG.debug(LOG_MSG_ENFORCE_SNAPSHOT, lastProcessedPosition);
-            try {
-              createSnapshot(() -> snapshotController.takeSnapshot(lastProcessedPosition));
-            } catch (Exception ex) {
-              LOG.error(ERROR_MSG_ENFORCED_SNAPSHOT, ex);
-            }
-          }
-          snapshotCreation.complete(null);
-        });
-    return snapshotCreation;
+      LOG.debug(LOG_MSG_ENFORCE_SNAPSHOT, lastProcessedPosition);
+      try {
+        createSnapshot(() -> snapshotController.takeSnapshot(lastProcessedPosition));
+      } catch (Exception ex) {
+        LOG.error(ERROR_MSG_ENFORCED_SNAPSHOT, ex);
+      }
+    }
   }
 
   private void prepareTakingSnapshot() {
