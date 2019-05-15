@@ -41,12 +41,21 @@ public class DefaultRestoreInfoRequestHandler implements RestoreInfoRequestHandl
     if (lastValidSnapshotPosition > -1
         && lastValidSnapshotPosition >= request.getLatestLocalPosition()) {
       target = RestoreInfoResponse.ReplicationTarget.SNAPSHOT;
-    } else if (reader.seek(request.getLatestLocalPosition()) && reader.hasNext()) {
+    } else if (seekToRequestedPositionExclusive(request.getLatestLocalPosition())) {
       target = RestoreInfoResponse.ReplicationTarget.EVENTS;
     } else {
       target = RestoreInfoResponse.ReplicationTarget.NONE;
     }
 
     return new DefaultRestoreInfoResponse(target);
+  }
+
+  private boolean seekToRequestedPositionExclusive(long position) {
+    if (position == -1) {
+      reader.seekToFirstEvent();
+      return reader.hasNext();
+    }
+
+    return reader.seek(position) && reader.hasNext();
   }
 }
