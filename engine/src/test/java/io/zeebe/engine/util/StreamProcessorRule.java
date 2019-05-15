@@ -17,20 +17,8 @@
  */
 package io.zeebe.engine.util;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import io.zeebe.db.DbContext;
-import io.zeebe.db.ZeebeDb;
 import io.zeebe.db.ZeebeDbFactory;
-import io.zeebe.engine.processor.CommandResponseWriter;
-import io.zeebe.engine.processor.StreamProcessor;
-import io.zeebe.engine.processor.StreamProcessorFactory;
-import io.zeebe.engine.processor.TypedEventStreamProcessorBuilder;
-import io.zeebe.engine.processor.TypedStreamEnvironment;
+import io.zeebe.engine.processor.TypedRecordProcessors;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.engine.state.ZeebeState;
 import io.zeebe.logstreams.log.LogStream;
@@ -40,7 +28,6 @@ import io.zeebe.protocol.intent.Intent;
 import io.zeebe.servicecontainer.testing.ServiceContainerRule;
 import io.zeebe.test.util.AutoCloseableRule;
 import io.zeebe.util.ZbLogger;
-import io.zeebe.util.sched.ActorScheduler;
 import io.zeebe.util.sched.clock.ControlledActorClock;
 import io.zeebe.util.sched.testing.ActorSchedulerRule;
 import org.junit.rules.ExternalResource;
@@ -70,7 +57,6 @@ public class StreamProcessorRule implements TestRule {
   public static final String STREAM_NAME = "stream";
 
   private TestStreams streams;
-  private TypedStreamEnvironment streamEnvironment;
 
   private final SetupRule rule;
   private ZeebeState zeebeState;
@@ -103,43 +89,19 @@ public class StreamProcessorRule implements TestRule {
     return chain.apply(base, description);
   }
 
-  public StreamProcessorControl runStreamProcessor(StreamProcessorFactory factory) {
-    final StreamProcessorControl control = initStreamProcessor(factory);
-    control.start();
-    return control;
-  }
-
-  public StreamProcessorControl runTypedStreamProcessor(StreamProcessorTestFactory factory) {
-    final StreamProcessorControl control = initTypedStreamProcessor(factory);
-    control.start();
-    return control;
-  }
-
-  public StreamProcessorControl initStreamProcessor(StreamProcessorFactory factory) {
-    return streams.initStreamProcessor(STREAM_NAME, 0, zeebeDbFactory, factory);
-  }
-
-  public StreamProcessorControl initTypedStreamProcessor(StreamProcessorTestFactory factory) {
-
-    return streams.initStreamProcessor(
+  public void startTypedStreamProcessor(StreamProcessorTestFactory factory) {
+    streams.startStreamProcessor(
         STREAM_NAME,
         0,
         zeebeDbFactory,
-        (actor, db, dbContext) -> {
-          zeebeState = new ZeebeState(db, dbContext);
-          final TypedEventStreamProcessorBuilder processorBuilder =
-              streamEnvironment.newStreamProcessor().zeebeState(zeebeState);
-
-          return factory.build(processorBuilder, db, dbContext);
+        (processingContext) -> {
+          zeebeState = processingContext.getZeebeState();
+          return factory.build(TypedRecordProcessors.processors(), zeebeState);
         });
   }
 
   public ControlledActorClock getClock() {
     return clock;
-  }
-
-  public ActorScheduler getActorScheduler() {
-    return actorSchedulerRule.get();
   }
 
   public ZeebeState getZeebeState() {
@@ -203,26 +165,10 @@ public class StreamProcessorRule implements TestRule {
 
     @Override
     protected void before() {
-
-      final CommandResponseWriter mockCommandResponseWriter = mock(CommandResponseWriter.class);
-      when(mockCommandResponseWriter.intent(any())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.key(anyLong())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.partitionId(anyInt())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.recordType(any())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.rejectionType(any())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.rejectionReason(any())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.valueType(any())).thenReturn(mockCommandResponseWriter);
-      when(mockCommandResponseWriter.valueWriter(any())).thenReturn(mockCommandResponseWriter);
-
-      when(mockCommandResponseWriter.tryWriteResponse(anyInt(), anyLong())).thenReturn(true);
-
       streams =
           new TestStreams(
               tempFolder, closeables, serviceContainerRule.get(), actorSchedulerRule.get());
       streams.createLogStream(STREAM_NAME, partitionId);
-
-      streamEnvironment =
-          new TypedStreamEnvironment(streams.getLogStream(STREAM_NAME), mockCommandResponseWriter);
     }
   }
 
@@ -237,7 +183,6 @@ public class StreamProcessorRule implements TestRule {
 
   @FunctionalInterface
   public interface StreamProcessorTestFactory {
-    StreamProcessor build(
-        TypedEventStreamProcessorBuilder builder, ZeebeDb zeebeDb, DbContext dbContext);
+    TypedRecordProcessors build(TypedRecordProcessors builder, ZeebeState zeebeState);
   }
 }

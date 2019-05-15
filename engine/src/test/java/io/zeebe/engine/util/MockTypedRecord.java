@@ -45,6 +45,11 @@ public class MockTypedRecord<T extends UnpackedObject> implements TypedRecord<T>
   }
 
   @Override
+  public long getPosition() {
+    return 0;
+  }
+
+  @Override
   public RecordMetadata getMetadata() {
     return metadata;
   }
