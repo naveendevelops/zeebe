@@ -119,14 +119,14 @@ public class Partition implements Service<Partition> {
             processorStateReplication,
             brokerCfg.getData().getMaxSnapshots());
 
+    restoreContext.startRestoreServer(
+        logStream, processorSnapshotController, exporterSnapshotController);
+
     if (state == RaftState.FOLLOWER) {
       logStream.setExporterPositionSupplier(this::getLowestReplicatedExportedPosition);
 
       processorSnapshotController.consumeReplicatedSnapshots(logStream::delete);
       exporterSnapshotController.consumeReplicatedSnapshots(pos -> {});
-    } else {
-      restoreContext.startRestoreServer(
-          logStream, processorSnapshotController, exporterSnapshotController);
     }
   }
 
@@ -168,10 +168,7 @@ public class Partition implements Service<Partition> {
   public void stop(ServiceStopContext stopContext) {
     processorStateReplication.close();
     exporterStateReplication.close();
-
-    if (state == RaftState.LEADER) {
-      restoreContext.stopRestoreServer();
-    }
+    restoreContext.stopRestoreServer();
   }
 
   @Override

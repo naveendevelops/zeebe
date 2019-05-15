@@ -19,5 +19,5 @@ package io.zeebe.distributedlog.restore;
 public interface RestoreClientFactory {
 
   /** @return a configured {@link RestoreClient} */
-  RestoreClient createClient();
+  RestoreClient createClient(int partitionId);
 }

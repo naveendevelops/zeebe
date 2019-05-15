@@ -26,10 +26,12 @@ import io.atomix.core.AtomixBuilder;
 import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.atomix.utils.net.Address;
 import io.zeebe.broker.Loggers;
+import io.zeebe.broker.logstreams.restore.BrokerRestoreFactory;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.broker.system.configuration.ClusterCfg;
 import io.zeebe.broker.system.configuration.DataCfg;
 import io.zeebe.broker.system.configuration.NetworkCfg;
+import io.zeebe.distributedlog.impl.LogstreamConfig;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
@@ -122,12 +124,18 @@ public class AtomixService implements Service<Atomix> {
     atomixBuilder.withManagementGroup(systemGroup).withPartitionGroups(partitionGroup);
 
     atomix = atomixBuilder.build();
+
+    final BrokerRestoreFactory restoreFactory =
+        new BrokerRestoreFactory(atomix.getCommunicationService());
+    LogstreamConfig.putRestoreClientFactory(localMemberId, restoreFactory);
   }
 
   @Override
   public void stop(ServiceStopContext stopContext) {
+    final String localMemberId = atomix.getMembershipService().getLocalMember().id().id();
     final CompletableFuture<Void> stopFuture = atomix.stop();
     stopContext.async(mapCompletableFuture(stopFuture));
+    LogstreamConfig.removeRestoreClientFactory(localMemberId);
   }
 
   @Override
