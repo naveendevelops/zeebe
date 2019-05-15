@@ -42,7 +42,6 @@ public class StreamProcessorController extends Actor {
       "Expected to find event with the snapshot position %s in log stream, but nothing was found. Failed to recover with processor '%s'.";
 
   private final StreamProcessorFactory streamProcessorFactory;
-  private final boolean deleteDataOnSnapshot;
   private StreamProcessor streamProcessor;
   private final StreamProcessorContext streamProcessorContext;
   private final SnapshotController snapshotController;
@@ -65,7 +64,6 @@ public class StreamProcessorController extends Actor {
   private StreamProcessorMetrics metrics;
   private DbContext dbContext;
   private ProcessingStateMachine processingStateMachine;
-  private AsyncSnapshotDirector asyncSnapshotDirector;
   private final int maxSnapshots;
 
   public StreamProcessorController(final StreamProcessorContext context) {
@@ -83,7 +81,6 @@ public class StreamProcessorController extends Actor {
     this.logStreamReader = context.getLogStreamReader();
     this.logStreamWriter = context.getLogStreamWriter();
     this.maxSnapshots = context.getMaxSnapshots();
-    this.deleteDataOnSnapshot = context.getDeleteDataOnSnapshot();
   }
 
   @Override
@@ -193,22 +190,6 @@ public class StreamProcessorController extends Actor {
     phase = Phase.PROCESSING;
 
     final LogStream logStream = streamProcessorContext.getLogStream();
-    asyncSnapshotDirector =
-        new AsyncSnapshotDirector(
-            streamProcessorContext.name,
-            streamProcessorContext.snapshotPeriod,
-            processingStateMachine::getLastProcessedPositionAsync,
-            processingStateMachine::getLastWrittenPositionAsync,
-            snapshotController,
-            logStream::registerOnCommitPositionUpdatedCondition,
-            logStream::removeOnCommitPositionUpdatedCondition,
-            logStream::getCommitPosition,
-            metrics,
-            maxSnapshots,
-            deleteDataOnSnapshot ? logStream::delete : pos -> {});
-
-    actorScheduler.submitActor(asyncSnapshotDirector);
-
     onCommitPositionUpdatedCondition =
         actor.onCondition(
             getName() + "-on-commit-position-updated", processingStateMachine::readNextEvent);
@@ -237,34 +218,6 @@ public class StreamProcessorController extends Actor {
   @Override
   protected void onActorClosing() {
     metrics.close();
-
-    if (!isFailed()) {
-      actor.run(
-          () -> {
-            final LogStream logStream = streamProcessorContext.logStream;
-            if (asyncSnapshotDirector != null) {
-              actor.runOnCompletionBlockingCurrentPhase(
-                  asyncSnapshotDirector.enforceSnapshotCreation(
-                      processingStateMachine.getLastWrittenEventPosition(),
-                      processingStateMachine.getLastSuccessfulProcessedEventPosition()),
-                  (v, ex) -> {
-                    try {
-                      asyncSnapshotDirector.close();
-                      snapshotController.close();
-                    } catch (Exception e) {
-                      LOG.error("Error on closing snapshotController.", e);
-                    }
-                  });
-            } else {
-              try {
-                snapshotController.close();
-              } catch (Exception e) {
-                LOG.error("Error on closing snapshotController.", e);
-              }
-            }
-          });
-    }
-
     streamProcessorContext.getLogStreamReader().close();
 
     if (onCommitPositionUpdatedCondition != null) {
@@ -315,6 +268,18 @@ public class StreamProcessorController extends Actor {
     if (phase == Phase.PROCESSING) {
       actor.submit(processingStateMachine::readNextEvent);
     }
+  }
+
+  public ActorFuture<Long> getLastProcessedPositionAsync() {
+    return processingStateMachine.getLastProcessedPositionAsync();
+  }
+
+  public ActorFuture<Long> getLastWrittenPositionAsync() {
+    return processingStateMachine.getLastWrittenPositionAsync();
+  }
+
+  public StreamProcessorMetrics getMetrics() {
+    return metrics;
   }
 
   private enum Phase {

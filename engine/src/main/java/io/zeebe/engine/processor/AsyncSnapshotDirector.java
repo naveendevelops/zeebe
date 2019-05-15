@@ -18,6 +18,7 @@
 package io.zeebe.engine.processor;
 
 import io.zeebe.logstreams.impl.Loggers;
+import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.util.sched.Actor;
 import io.zeebe.util.sched.ActorCondition;
@@ -25,9 +26,6 @@ import io.zeebe.util.sched.SchedulingHints;
 import io.zeebe.util.sched.future.ActorFuture;
 import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.time.Duration;
-import java.util.function.Consumer;
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import org.slf4j.Logger;
 
 public class AsyncSnapshotDirector extends Actor {
@@ -54,20 +52,15 @@ public class AsyncSnapshotDirector extends Actor {
 
   private final Runnable prepareTakingSnapshot = this::prepareTakingSnapshot;
 
-  private final Supplier<ActorFuture<Long>> asyncLastProcessedPositionSupplier;
-  private final Supplier<ActorFuture<Long>> asyncLastWrittenPositionSupplier;
-
   private final SnapshotController snapshotController;
 
-  private final Consumer<ActorCondition> conditionRegistration;
-  private final Consumer<ActorCondition> conditionCheckOut;
-  private final LongSupplier commitPositionSupplier;
+  private final LogStream logStream;
   private final String name;
   private final Duration snapshotRate;
   private final StreamProcessorMetrics metrics;
   private final String processorName;
   private final int maxSnapshots;
-  private final Consumer<Long> oldDataRemover;
+  private final StreamProcessorController streamProcessorController;
 
   private ActorCondition commitCondition;
   private long lastWrittenEventPosition = INITIAL_POSITION;
@@ -76,30 +69,21 @@ public class AsyncSnapshotDirector extends Actor {
 
   private long lastValidSnapshotPosition;
 
-  AsyncSnapshotDirector(
+  public AsyncSnapshotDirector(
       String name,
-      Duration snapshotRate,
-      Supplier<ActorFuture<Long>> asyncLastProcessedPositionSupplier,
-      Supplier<ActorFuture<Long>> asyncLastWrittenPositionSupplier,
+      StreamProcessorController streamProcessorController,
       SnapshotController snapshotController,
-      Consumer<ActorCondition> conditionRegistration,
-      Consumer<ActorCondition> conditionCheckOut,
-      LongSupplier commitPositionSupplier,
-      StreamProcessorMetrics metrics,
-      int maxSnapshots,
-      Consumer<Long> oldDataRemover) {
-    this.asyncLastProcessedPositionSupplier = asyncLastProcessedPositionSupplier;
-    this.asyncLastWrittenPositionSupplier = asyncLastWrittenPositionSupplier;
+      LogStream logStream,
+      Duration snapshotRate,
+      int maxSnapshots) {
+    this.streamProcessorController = streamProcessorController;
     this.snapshotController = snapshotController;
-    this.conditionRegistration = conditionRegistration;
-    this.conditionCheckOut = conditionCheckOut;
-    this.commitPositionSupplier = commitPositionSupplier;
+    this.logStream = logStream;
     this.processorName = name;
     this.name = name + "-snapshot-director";
     this.snapshotRate = snapshotRate;
-    this.metrics = metrics;
+    this.metrics = streamProcessorController.getMetrics();
     this.maxSnapshots = Math.max(maxSnapshots, 1);
-    this.oldDataRemover = oldDataRemover;
   }
 
   @Override
@@ -108,7 +92,7 @@ public class AsyncSnapshotDirector extends Actor {
     actor.runAtFixedRate(snapshotRate, prepareTakingSnapshot);
 
     commitCondition = actor.onCondition(getConditionNameForPosition(), this::onCommitCheck);
-    conditionRegistration.accept(commitCondition);
+    logStream.registerOnCommitPositionUpdatedCondition(commitCondition);
 
     lastValidSnapshotPosition = snapshotController.getLastValidSnapshotPosition();
     LOG.debug(
@@ -127,7 +111,15 @@ public class AsyncSnapshotDirector extends Actor {
 
   @Override
   protected void onActorCloseRequested() {
-    conditionCheckOut.accept(commitCondition);
+    logStream.removeOnCommitPositionUpdatedCondition(commitCondition);
+
+    try {
+      enforceSnapshotCreation(
+          streamProcessorController.getLastWrittenPositionAsync().get(),
+          streamProcessorController.getLastProcessedPositionAsync().get());
+    } catch (Exception e) {
+      LOG.error("Unexpected error occurred while taking snapshot on closing.", e);
+    }
   }
 
   public ActorFuture<Void> enforceSnapshotCreation(
@@ -135,7 +127,7 @@ public class AsyncSnapshotDirector extends Actor {
     final ActorFuture<Void> snapshotCreation = new CompletableActorFuture<>();
     actor.call(
         () -> {
-          final long commitPosition = commitPositionSupplier.getAsLong();
+          final long commitPosition = logStream.getCommitPosition();
 
           if (!pendingSnapshot
               && commitPosition >= lastWrittenPosition
@@ -158,7 +150,8 @@ public class AsyncSnapshotDirector extends Actor {
       return;
     }
 
-    final ActorFuture<Long> lastProcessedPosition = asyncLastProcessedPositionSupplier.get();
+    final ActorFuture<Long> lastProcessedPosition =
+        streamProcessorController.getLastProcessedPositionAsync();
     actor.runOnCompletion(
         lastProcessedPosition,
         (lowerBoundSnapshotPosition, error) -> {
@@ -183,12 +176,13 @@ public class AsyncSnapshotDirector extends Actor {
     pendingSnapshot = true;
     createSnapshot(snapshotController::takeTempSnapshot);
 
-    final ActorFuture<Long> lastWrittenPosition = asyncLastWrittenPositionSupplier.get();
+    final ActorFuture<Long> lastWrittenPosition =
+        streamProcessorController.getLastWrittenPositionAsync();
     actor.runOnCompletion(
         lastWrittenPosition,
         (endPosition, error) -> {
           if (error == null) {
-            final long commitPosition = commitPositionSupplier.getAsLong();
+            final long commitPosition = logStream.getCommitPosition();
             lastWrittenEventPosition = endPosition;
 
             LOG.debug(LOG_MSG_WAIT_UNTIL_COMMITTED, endPosition, commitPosition);
@@ -213,7 +207,7 @@ public class AsyncSnapshotDirector extends Actor {
   }
 
   private void onCommitCheck() {
-    final long currentCommitPosition = commitPositionSupplier.getAsLong();
+    final long currentCommitPosition = logStream.getCommitPosition();
 
     if (pendingSnapshot && currentCommitPosition >= lastWrittenEventPosition) {
       try {
@@ -224,7 +218,7 @@ public class AsyncSnapshotDirector extends Actor {
         try {
           snapshotController.ensureMaxSnapshotCount(maxSnapshots);
           if (snapshotController.getValidSnapshotsCount() == maxSnapshots) {
-            oldDataRemover.accept(snapshotController.getPositionToDelete(maxSnapshots));
+            logStream.delete(snapshotController.getPositionToDelete(maxSnapshots));
           }
 
         } catch (Exception ex) {

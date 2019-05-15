@@ -706,14 +706,12 @@ public class StreamProcessorControllerTest {
             .eventFilter(eventFilter)
             .serviceContainer(logStreamRule.getServiceContainer())
             .snapshotController(snapshotController)
-            .maxSnapshots(MAX_SNAPSHOTS)
             .streamProcessorFactory(
                 (actor, db, ctx) -> {
                   openedFuture = new CompletableActorFuture<>();
                   processorCreated.countDown();
                   return createStreamProcessor(db, openedFuture);
                 })
-            .snapshotPeriod(SNAPSHOT_INTERVAL)
             .build()
             .join();
 

@@ -35,21 +35,15 @@ import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.util.EnsureUtil;
 import io.zeebe.util.sched.ActorScheduler;
 import io.zeebe.util.sched.future.ActorFuture;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 public class StreamProcessorServiceFactory implements Service<StreamProcessorServiceFactory> {
   private final ServiceContainer serviceContainer;
-  private final Duration snapshotPeriod;
-  private final int maxSnapshots;
   private ActorScheduler actorScheduler;
 
-  public StreamProcessorServiceFactory(
-      ServiceContainer serviceContainer, Duration snapshotPeriod, int maxSnapshots) {
+  public StreamProcessorServiceFactory(ServiceContainer serviceContainer) {
     this.serviceContainer = serviceContainer;
-    this.snapshotPeriod = snapshotPeriod;
-    this.maxSnapshots = maxSnapshots;
   }
 
   @Override
@@ -123,13 +117,10 @@ public class StreamProcessorServiceFactory implements Service<StreamProcessorSer
           .actorScheduler(actorScheduler)
           .serviceContainer(serviceContainer)
           .snapshotController(snapshotController)
-          .snapshotPeriod(snapshotPeriod)
-          .maxSnapshots(maxSnapshots)
           .logStream(logStream)
           .eventFilter(eventFilter)
           .additionalDependencies(additionalDependencies)
           .streamProcessorFactory(streamProcessorFactory)
-          .deleteDataOnSnapshot(enableDeleteData)
           .build();
     }
   }

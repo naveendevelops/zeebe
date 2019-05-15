@@ -24,6 +24,7 @@ import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
 import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.db.ZeebeDb;
+import io.zeebe.engine.processor.AsyncSnapshotDirector;
 import io.zeebe.engine.processor.StreamProcessorService;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.state.SnapshotReplication;
@@ -32,6 +33,8 @@ import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
+import io.zeebe.util.DurationUtil;
+import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -86,6 +89,7 @@ public class Partition implements Service<Partition> {
 
       this.snapshotController.consumeReplicatedSnapshots(logStream::delete);
     } else {
+      createSnapshotDirector(startContext);
       executor =
           Executors.newSingleThreadExecutor(
               (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
@@ -98,6 +102,22 @@ public class Partition implements Service<Partition> {
             this.snapshotController.replicateLatestSnapshot(Runnable::run);
           });
     }
+  }
+
+  private void createSnapshotDirector(final ServiceStartContext startContext) {
+    final Duration snapshotPeriod = DurationUtil.parse(brokerCfg.getData().getSnapshotPeriod());
+    final int maxSnapshots = brokerCfg.getData().getMaxSnapshots();
+
+    final AsyncSnapshotDirector asyncSnapshotDirector =
+        new AsyncSnapshotDirector(
+            EngineService.PROCESSOR_NAME,
+            streamProcessorServiceInjector.getValue().getController(),
+            snapshotController,
+            logStream,
+            snapshotPeriod,
+            maxSnapshots);
+
+    startContext.getScheduler().submitActor(asyncSnapshotDirector);
   }
 
   private long getLowestReplicatedExportedPosition() {

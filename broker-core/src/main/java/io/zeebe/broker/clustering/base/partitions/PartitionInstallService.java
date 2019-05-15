@@ -241,7 +241,7 @@ public class PartitionInstallService extends Actor
     final CompositeServiceBuilder leaderInstallService =
         startContext.createComposite(leaderInstallRootServiceName);
 
-    installSnapshotControllerService(RaftState.LEADER);
+    installSnapshotServices(RaftState.LEADER);
 
     // Get an instance of DistributedLog
     final DistributedLogstreamPartition distributedLogstreamPartition =
@@ -276,7 +276,7 @@ public class PartitionInstallService extends Actor
 
   private ActorFuture<Partition> installFollowerPartition() {
     LOG.debug("Installing follower partition service for partition {}", partitionId);
-    installSnapshotControllerService(RaftState.FOLLOWER);
+    installSnapshotServices(RaftState.FOLLOWER);
 
     final Partition partition =
         new Partition(brokerCfg, clusterCommunicationService, partitionId, RaftState.FOLLOWER);
@@ -296,7 +296,7 @@ public class PartitionInstallService extends Actor
     return CompletableActorFuture.completed(null);
   }
 
-  private void installSnapshotControllerService(final RaftState role) {
+  private void installSnapshotServices(final RaftState role) {
     LOG.debug(
         "Installing snapshot controller service for partition {} as {} role", partitionId, role);
 

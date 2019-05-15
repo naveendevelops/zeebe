@@ -31,7 +31,6 @@ import io.zeebe.servicecontainer.ServiceContainer;
 import io.zeebe.servicecontainer.ServiceName;
 import io.zeebe.util.sched.ActorScheduler;
 import io.zeebe.util.sched.future.ActorFuture;
-import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
@@ -43,7 +42,6 @@ public class StreamProcessorBuilder {
 
   protected ActorScheduler actorScheduler;
 
-  protected Duration snapshotPeriod;
   protected SnapshotController snapshotController;
 
   private LogStreamReader logStreamReader;
@@ -54,8 +52,6 @@ public class StreamProcessorBuilder {
   protected ServiceContainer serviceContainer;
   private List<ServiceName<?>> additionalDependencies;
   private StreamProcessorFactory streamProcessorFactory;
-  private int maxSnapshots;
-  private boolean deleteDataOnSnapshot;
 
   public StreamProcessorBuilder(int id, String name) {
     this.id = id;
@@ -84,16 +80,6 @@ public class StreamProcessorBuilder {
     return this;
   }
 
-  public StreamProcessorBuilder snapshotPeriod(Duration snapshotPeriod) {
-    this.snapshotPeriod = snapshotPeriod;
-    return this;
-  }
-
-  public StreamProcessorBuilder maxSnapshots(int maxSnapshots) {
-    this.maxSnapshots = maxSnapshots;
-    return this;
-  }
-
   public StreamProcessorBuilder snapshotController(SnapshotController snapshotController) {
     this.snapshotController = snapshotController;
     return this;
@@ -107,11 +93,6 @@ public class StreamProcessorBuilder {
 
   public StreamProcessorBuilder serviceContainer(ServiceContainer serviceContainer) {
     this.serviceContainer = serviceContainer;
-    return this;
-  }
-
-  public StreamProcessorBuilder deleteDataOnSnapshot(final boolean deleteData) {
-    this.deleteDataOnSnapshot = deleteData;
     return this;
   }
 
@@ -161,14 +142,7 @@ public class StreamProcessorBuilder {
 
     ctx.setEventFilter(eventFilter);
 
-    if (snapshotPeriod == null) {
-      snapshotPeriod = Duration.ofMinutes(1);
-    }
-
-    ctx.setSnapshotPeriod(snapshotPeriod);
-    ctx.setMaxSnapshots(maxSnapshots);
     ctx.setSnapshotController(snapshotController);
-    ctx.setDeleteDataOnSnapshot(deleteDataOnSnapshot);
 
     logStreamReader = new BufferedLogStreamReader();
     ctx.setLogStreamReader(logStreamReader);

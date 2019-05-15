@@ -23,7 +23,6 @@ import io.zeebe.logstreams.log.LogStreamRecordWriter;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.util.sched.ActorControl;
 import io.zeebe.util.sched.ActorScheduler;
-import java.time.Duration;
 
 public class StreamProcessorContext {
   protected int id;
@@ -34,7 +33,6 @@ public class StreamProcessorContext {
   private LogStreamReader logStreamReader;
   protected LogStreamRecordWriter logStreamWriter;
 
-  protected Duration snapshotPeriod;
   protected SnapshotController snapshotController;
 
   protected ActorScheduler actorScheduler;
@@ -45,7 +43,6 @@ public class StreamProcessorContext {
   private Runnable suspendRunnable;
   private Runnable resumeRunnable;
   private int maxSnapshots;
-  private boolean deleteDataOnSnapshot;
 
   public LogStream getLogStream() {
     return logStream;
@@ -93,14 +90,6 @@ public class StreamProcessorContext {
 
   public void setLogStreamWriter(LogStreamRecordWriter logStreamWriter) {
     this.logStreamWriter = logStreamWriter;
-  }
-
-  public Duration getSnapshotPeriod() {
-    return snapshotPeriod;
-  }
-
-  public void setSnapshotPeriod(Duration snapshotPeriod) {
-    this.snapshotPeriod = snapshotPeriod;
   }
 
   public SnapshotController getSnapshotController() {
@@ -167,13 +156,5 @@ public class StreamProcessorContext {
 
   public int getMaxSnapshots() {
     return maxSnapshots;
-  }
-
-  public void setDeleteDataOnSnapshot(final boolean deleteDataOnSnapshot) {
-    this.deleteDataOnSnapshot = deleteDataOnSnapshot;
-  }
-
-  public boolean getDeleteDataOnSnapshot() {
-    return deleteDataOnSnapshot;
   }
 }
