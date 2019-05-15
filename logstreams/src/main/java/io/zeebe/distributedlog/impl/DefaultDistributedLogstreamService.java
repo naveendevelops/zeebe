@@ -28,7 +28,6 @@ import io.zeebe.distributedlog.DistributedLogstreamClient;
 import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.distributedlog.StorageConfiguration;
-import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.impl.PartitionLeaderStrategyPicker;
@@ -231,14 +230,11 @@ public class DefaultDistributedLogstreamService
       while (lastPosition < backupPosition) {
         LOG.trace("Restoring local log from position {} to {}", lastPosition, backupInput);
         try {
+          final PartitionLeaderStrategyPicker strategyPicker = this.buildRestoreStrategyPicker();
           final long lastUpdatedPosition =
-              LogstreamConfig.getLeaderElectionController(localMemberId, partitionId)
-                  .thenApply(this::buildRestoreStrategyPicker)
-                  .thenCompose(
-                      strategyPicker ->
-                          strategyPicker
-                              .pick(latestLocalPosition, backupPosition)
-                              .thenCompose(RestoreStrategy::executeRestoreStrategy))
+              strategyPicker
+                  .pick(latestLocalPosition, backupPosition)
+                  .thenCompose(RestoreStrategy::executeRestoreStrategy)
                   .join();
           updateCommitPosition(lastUpdatedPosition);
           LOG.trace("Restored local log from position {} to {}", latestLocalPosition, lastPosition);
@@ -265,8 +261,7 @@ public class DefaultDistributedLogstreamService
     lastPosition = commitPosition;
   }
 
-  private PartitionLeaderStrategyPicker buildRestoreStrategyPicker(
-      PartitionLeaderElectionController electionController) {
+  private PartitionLeaderStrategyPicker buildRestoreStrategyPicker() {
     final String localMemberId = getLocalMemberId().id();
     final RestoreClient restoreClient =
         LogstreamConfig.getRestoreClient(localMemberId, partitionId);
@@ -274,7 +269,7 @@ public class DefaultDistributedLogstreamService
         new LogReplicator(this, restoreClient, restoreThreadContext, LOG);
 
     return new PartitionLeaderStrategyPicker(
-        electionController, restoreClient, logReplicator, localMemberId, restoreThreadContext);
+        restoreClient, logReplicator, localMemberId, restoreThreadContext);
   }
 
   @Override

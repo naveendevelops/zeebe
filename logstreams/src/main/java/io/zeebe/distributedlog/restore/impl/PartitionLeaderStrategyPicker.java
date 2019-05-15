@@ -17,7 +17,6 @@ package io.zeebe.distributedlog.restore.impl;
 
 import io.atomix.cluster.MemberId;
 import io.atomix.utils.concurrent.Scheduler;
-import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
@@ -34,19 +33,16 @@ import java.util.concurrent.CompletableFuture;
  * delay.
  */
 public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
-  private final PartitionLeaderElectionController electionController;
   private final RestoreClient client;
   private final String localMemberId;
   private final Scheduler scheduler;
   private final LogReplicator logReplicator;
 
   public PartitionLeaderStrategyPicker(
-      PartitionLeaderElectionController electionController,
       RestoreClient client,
       LogReplicator logReplicator,
       String localMemberId,
       Scheduler scheduler) {
-    this.electionController = electionController;
     this.client = client;
     this.logReplicator = logReplicator;
     this.localMemberId = localMemberId;
@@ -67,11 +63,12 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
   }
 
   private void tryFindRestoreServer(CompletableFuture<MemberId> result) {
-    final MemberId leader = electionController.getLeader();
+    final MemberId leader = MemberId.from("0");
     if (leader == null) {
       scheduler.schedule(Duration.ofMillis(100), () -> tryFindRestoreServer(result));
     } else if (leader.id().equals(localMemberId)) {
-      electionController.withdraw().thenRun(() -> tryFindRestoreServer(result));
+      System.out.println(">>> FINDME: Should not happen");
+      // electionController.withdraw().thenRun(() -> tryFindRestoreServer(result));
     } else {
       result.complete(leader);
     }
@@ -103,7 +100,7 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
         result.complete(() -> logReplicator.replicate(server, latestLocalPosition, backupPosition));
         break;
       case NONE:
-        result.completeExceptionally(new RuntimeException("h"));
+        result.completeExceptionally(new UnsupportedOperationException("not yet implemented"));
         break;
     }
 

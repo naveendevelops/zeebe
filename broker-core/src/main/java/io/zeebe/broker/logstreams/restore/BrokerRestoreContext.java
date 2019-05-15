@@ -47,17 +47,15 @@ public class BrokerRestoreContext implements AutoCloseable {
     this.partitionId = partitionId;
     this.localMemberId = localMemberId;
     this.electionController = electionController;
-    this.restoreFactory = new BrokerRestoreFactory(communicationService, partitionId);
+    this.restoreFactory = new BrokerRestoreFactory(communicationService);
   }
 
   public void updateLogstreamConfig() {
     LogstreamConfig.putLeaderElectionController(localMemberId, partitionId, electionController);
-    LogstreamConfig.putRestoreClientFactory(localMemberId, partitionId, restoreFactory);
   }
 
   public void clearLogstreamConfig() {
     LogstreamConfig.removeLeaderElectionController(localMemberId, partitionId);
-    LogstreamConfig.removeRestoreClientFactory(localMemberId, partitionId);
   }
 
   @Override
@@ -78,7 +76,7 @@ public class BrokerRestoreContext implements AutoCloseable {
     final SnapshotRequestHandler snapshotRequestHandler =
         new DefaultSnapshotRequestHandler(processorSnapshotController, exporterSnapshotController);
 
-    this.server = restoreFactory.createServer();
+    this.server = restoreFactory.createServer(partitionId);
     this.server
         .serve(logReplicationHandler)
         .thenCompose(nothing -> server.serve(restoreInfoHandler))

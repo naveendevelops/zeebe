@@ -24,25 +24,37 @@ import io.zeebe.distributedlog.restore.RestoreServer;
 
 public class BrokerRestoreFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
-  private final String replicationTopic;
-  private final String restoreInfoTopic;
-  private final String snapshotRequestTopic;
 
-  public BrokerRestoreFactory(ClusterCommunicationService communicationService, int partitionId) {
+  public BrokerRestoreFactory(ClusterCommunicationService communicationService) {
     this.communicationService = communicationService;
-    this.replicationTopic = String.format("log-replication-%d", partitionId);
-    this.restoreInfoTopic = String.format("restore-info-%d", partitionId);
-    this.snapshotRequestTopic = String.format("snapshot-request-%d", partitionId);
   }
 
   @Override
-  public RestoreClient createClient() {
+  public RestoreClient createClient(int partitionId) {
     return new BrokerRestoreClient(
-        communicationService, replicationTopic, restoreInfoTopic, snapshotRequestTopic);
+        communicationService,
+        getLogReplicationTopic(partitionId),
+        getRestoreInfoTopic(partitionId),
+        getSnapshotRequestTopic(partitionId));
   }
 
-  public RestoreServer createServer() {
+  public RestoreServer createServer(int partitionId) {
     return new BrokerRestoreServer(
-        communicationService, replicationTopic, restoreInfoTopic, snapshotRequestTopic);
+        communicationService,
+        getLogReplicationTopic(partitionId),
+        getRestoreInfoTopic(partitionId),
+        getSnapshotRequestTopic(partitionId));
+  }
+
+  private String getLogReplicationTopic(int partitionId) {
+    return String.format("log-replication-%d", partitionId);
+  }
+
+  private String getRestoreInfoTopic(int partitionId) {
+    return String.format("restore-info-%d", partitionId);
+  }
+
+  private String getSnapshotRequestTopic(int partitionId) {
+    return String.format("snapshot-request-%d", partitionId);
   }
 }
