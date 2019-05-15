@@ -72,6 +72,10 @@ public class LogstreamConfig {
     return RESTORE_CLIENT_FACTORIES.get(nodeId).createClient(partitionId);
   }
 
+  public static RestoreClientFactory getRestoreClientFactory(String nodeId, int partitionId) {
+    return RESTORE_CLIENT_FACTORIES.get(nodeId);
+  }
+
   public static void putRestoreClientFactory(String nodeId, RestoreClientFactory provider) {
     RESTORE_CLIENT_FACTORIES.put(nodeId, provider);
   }

@@ -18,15 +18,23 @@
 package io.zeebe.broker.logstreams.restore;
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.atomix.cluster.messaging.ClusterEventService;
+import io.zeebe.broker.engine.EngineService;
+import io.zeebe.broker.exporter.ExporterManagerService;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.distributedlog.restore.RestoreServer;
+import io.zeebe.engine.state.replication.StateReplication;
+import io.zeebe.logstreams.state.SnapshotReplication;
 
 public class BrokerRestoreFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
+  private final ClusterEventService eventService;
 
-  public BrokerRestoreFactory(ClusterCommunicationService communicationService) {
+  public BrokerRestoreFactory(
+      ClusterCommunicationService communicationService, ClusterEventService eventService) {
     this.communicationService = communicationService;
+    this.eventService = eventService;
   }
 
   @Override
@@ -46,6 +54,16 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
         getRestoreInfoTopic(partitionId),
         getSnapshotRequestTopic(partitionId),
         getSnapshotInfoRequestTopic(partitionId));
+  }
+
+  @Override
+  public SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId) {
+    return new StateReplication(eventService, partitionId, EngineService.PROCESSOR_NAME);
+  }
+
+  @Override
+  public SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId) {
+    return new StateReplication(eventService, partitionId, ExporterManagerService.PROCESSOR_NAME);
   }
 
   private String getLogReplicationTopic(int partitionId) {

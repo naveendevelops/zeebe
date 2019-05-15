@@ -17,51 +17,50 @@ package io.zeebe.logstreams.state;
 
 import io.atomix.cluster.MemberId;
 import io.zeebe.distributedlog.restore.RestoreClient;
-import io.zeebe.logstreams.spi.SnapshotController;
 import java.util.concurrent.CompletableFuture;
 
 // TODO: handle case where not all snapshot controllers are needed, e.g. no exporter snapshot on
 // leader
 public class SnapshotRequester {
   private final RestoreClient client;
-  private final SnapshotController processorSnapshotController;
-  private final SnapshotController exporterSnapshotController;
+  private final ReplicationController processorSnapshotController;
+  private final ReplicationController exporterSnapshotController;
 
   public SnapshotRequester(
       RestoreClient client,
-      SnapshotController processorSnapshotController,
-      SnapshotController exporterSnapshotController) {
+      ReplicationController processorSnapshotController,
+      ReplicationController exporterSnapshotController) {
     this.client = client;
     this.processorSnapshotController = processorSnapshotController;
     this.exporterSnapshotController = exporterSnapshotController;
   }
 
-  public CompletableFuture<Void> getLatestSnapshotsFrom(
+  public CompletableFuture<Long> getLatestSnapshotsFrom(
       MemberId server, boolean getExporterSnapshot) {
-    CompletableFuture<Void> replicated = new CompletableFuture<>();
+    CompletableFuture<Long> replicated = CompletableFuture.completedFuture(null);
 
-    final CompletableFuture<Void> future = new CompletableFuture<>();
+    if (getExporterSnapshot) {
+      final CompletableFuture<Long> exporterFuture = new CompletableFuture<>();
+      exporterSnapshotController.addListener(
+          new DefaultSnapshotReplicationListener(exporterSnapshotController, exporterFuture));
+      replicated = replicated.thenCompose((nothing) -> exporterFuture);
+    }
+
+    final CompletableFuture<Long> future = new CompletableFuture<>();
     processorSnapshotController.addListener(
         new DefaultSnapshotReplicationListener(processorSnapshotController, future));
     replicated = replicated.thenCompose((nothing) -> future);
-
-    if (getExporterSnapshot) {
-      final CompletableFuture<Void> exporterFuture = new CompletableFuture<>();
-      exporterSnapshotController.addListener(
-          new DefaultSnapshotReplicationListener(exporterSnapshotController, future));
-      replicated = replicated.thenCompose((nothing) -> exporterFuture);
-    }
 
     client.requestLatestSnapshot(server);
     return replicated;
   }
 
   static class DefaultSnapshotReplicationListener implements SnapshotReplicationListener {
-    private final SnapshotController controller;
-    private final CompletableFuture<Void> future;
+    private final ReplicationController controller;
+    private final CompletableFuture<Long> future;
 
     DefaultSnapshotReplicationListener(
-        SnapshotController controller, CompletableFuture<Void> future) {
+        ReplicationController controller, CompletableFuture<Long> future) {
       this.controller = controller;
       this.future = future;
     }
@@ -75,7 +74,7 @@ public class SnapshotRequester {
     @Override
     public void onFailure(long snapshotPosition) {
       future.completeExceptionally(new FailedSnapshotReplication(snapshotPosition));
-      controller.enableRetrySnapshot(snapshotPosition);
+      controller.clearInvalidatedSnapshot(snapshotPosition);
       controller.removeListener(this);
     }
   }

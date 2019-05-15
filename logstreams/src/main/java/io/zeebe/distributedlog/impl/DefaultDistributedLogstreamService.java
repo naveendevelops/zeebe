@@ -29,6 +29,7 @@ import io.zeebe.distributedlog.DistributedLogstreamService;
 import io.zeebe.distributedlog.DistributedLogstreamType;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.restore.RestoreClient;
+import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.impl.PartitionLeaderStrategyPicker;
 import io.zeebe.distributedlog.restore.impl.SnapshotRestoreStrategy;
@@ -266,12 +267,15 @@ public class DefaultDistributedLogstreamService
     final String localMemberId = getLocalMemberId().id();
     final RestoreClient restoreClient =
         LogstreamConfig.getRestoreClient(localMemberId, partitionId);
+    final RestoreClientFactory restoreClientFactory =
+        LogstreamConfig.getRestoreClientFactory(localMemberId, partitionId);
+
     final LogReplicator logReplicator =
         new LogReplicator(this, restoreClient, restoreThreadContext, LOG);
 
     final SnapshotRestoreStrategy snapshotRestoreStrategy =
         new SnapshotRestoreStrategy(
-            restoreClient, localMemberId, partitionId, logStream, logReplicator);
+            restoreClientFactory, restoreClient, partitionId, logStream, logReplicator);
     return new PartitionLeaderStrategyPicker(
         restoreClient, logReplicator, snapshotRestoreStrategy, localMemberId, restoreThreadContext);
   }

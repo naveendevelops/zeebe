@@ -49,7 +49,7 @@ public class BrokerRestoreContext implements AutoCloseable {
     this.partitionId = partitionId;
     this.localMemberId = localMemberId;
     this.electionController = electionController;
-    this.restoreFactory = new BrokerRestoreFactory(communicationService);
+    this.restoreFactory = new BrokerRestoreFactory(communicationService, null);
   }
 
   public void updateLogstreamConfig() {
