@@ -18,6 +18,7 @@ package io.zeebe.logstreams.state;
 import io.atomix.cluster.MemberId;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import java.util.concurrent.CompletableFuture;
+import org.slf4j.LoggerFactory;
 
 // TODO: handle case where not all snapshot controllers are needed, e.g. no exporter snapshot on
 // leader
@@ -67,7 +68,8 @@ public class SnapshotRequester {
 
     @Override
     public void onReplicated(long snapshotPosition) {
-      future.complete(null);
+      LoggerFactory.getLogger("Restore").info("Replicated snapshot {}", snapshotPosition);
+      future.complete(snapshotPosition);
       controller.removeListener(this);
     }
 

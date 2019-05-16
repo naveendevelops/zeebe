@@ -29,6 +29,7 @@ import io.zeebe.logstreams.state.SnapshotRequester;
 import io.zeebe.logstreams.state.StateStorage;
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
+import org.slf4j.LoggerFactory;
 
 public class SnapshotRestoreStrategy implements RestoreStrategy {
 
@@ -68,15 +69,18 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
         restoreClientFactory.createExporterSnapshotReplicationConsumer(partitionId);
     processorSnapshotReplicationConsumer =
         restoreClientFactory.createProcessorSnapshotReplicationConsumer(partitionId);
-    StateStorage storage =
+    final StateStorage processorStorage =
         createStorage(
             configuration.getStatesDirectory().toString(), partitionId, "zb-stream-processor");
     processorSnapshotReplication = // TODO: pass Correct StateStorage directory
         new ReplicationController(
-            exporterSnapshotReplicationConsumer, storage, () -> {}, () -> -1L);
+            processorSnapshotReplicationConsumer, processorStorage, () -> {}, () -> -1L);
+
+    final StateStorage exporterStorage =
+        createStorage(configuration.getStatesDirectory().toString(), 1003, "exporter");
     exporterSnapshotReplication =
         new ReplicationController(
-            processorSnapshotReplicationConsumer, storage, () -> {}, () -> -1L);
+            exporterSnapshotReplicationConsumer, exporterStorage, () -> {}, () -> -1L);
 
     this.requester =
         new SnapshotRequester(client, processorSnapshotReplication, exporterSnapshotReplication);
@@ -117,7 +121,9 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
     processorSnapshotReplicationConsumer.close();
     exporterSnapshotReplicationConsumer.close();
     final long lastEventPosition = getValidSnapshotPosition(processorSnapshotPosition);
-    logStream.delete(lastEventPosition);
+    // logStream.delete(lastEventPosition);
+    LoggerFactory.getLogger("Snapshot restore")
+        .info("Snapshot replicated {}, backup position {}", lastEventPosition, backupPosition);
     logStream.setCommitPosition(lastEventPosition);
     if (lastEventPosition < backupPosition) {
       return logReplicator.replicate(server, lastEventPosition, backupPosition);

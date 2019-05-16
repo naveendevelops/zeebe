@@ -16,9 +16,13 @@
 package io.zeebe.distributedlog.restore.impl;
 
 import io.zeebe.distributedlog.restore.RestoreServer.SnapshotRequestHandler;
+import io.zeebe.logstreams.impl.Loggers;
 import io.zeebe.logstreams.spi.SnapshotController;
+import org.slf4j.Logger;
 
 public class DefaultSnapshotRequestHandler implements SnapshotRequestHandler {
+
+  private static final Logger LOG = Loggers.PROCESSOR_LOGGER;
   private final SnapshotController[] controllers;
 
   public DefaultSnapshotRequestHandler(SnapshotController... controllers) {
@@ -28,6 +32,7 @@ public class DefaultSnapshotRequestHandler implements SnapshotRequestHandler {
   @Override
   public void onSnapshotRequest(Void request) {
     for (SnapshotController controller : controllers) {
+      LOG.debug("Replicating snapshot on demand");
       controller.replicateLatestSnapshot(Runnable::run);
     }
   }

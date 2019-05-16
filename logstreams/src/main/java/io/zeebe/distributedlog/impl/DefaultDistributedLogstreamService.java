@@ -152,7 +152,10 @@ public class DefaultDistributedLogstreamService
 
     final BufferedLogStreamReader reader = new BufferedLogStreamReader(logStream);
     reader.seekToLastEvent();
-    lastPosition = reader.getPosition(); // position of last event which is committed
+    lastPosition =
+        Math.max(
+            logStream.getCommitPosition(),
+            reader.getPosition()); // position of last event which is committed
 
     LOG.info("Logstreams created. last appended event at position {}", lastPosition);
   }
@@ -161,6 +164,7 @@ public class DefaultDistributedLogstreamService
   public long append(String nodeId, long commitPosition, byte[] blockBuffer) {
     // Assumption: first append is always called after claim leadership. So currentLeader is not
     // null. Assumption is also valid during restart.
+    // LOG.debug("Append {}", commitPosition);
     if (!currentLeader.equals(nodeId)) {
       LOG.warn(
           "Append request from follower node {}. Current leader is {}.", nodeId, currentLeader);
@@ -184,6 +188,8 @@ public class DefaultDistributedLogstreamService
     final long appendResult = logStorage.append(buffer);
     if (appendResult > 0) {
       updateCommitPosition(commitPosition);
+    } else {
+      LOG.error("Append failed {}", appendResult);
     }
     // the return result is valid only for the leader. If the followers failed to append, they don't
     // retry
@@ -213,7 +219,7 @@ public class DefaultDistributedLogstreamService
     // while and tries to recover with backup received from other nodes, there will be missing
     // entries in the logStorage.
 
-    LOG.info("Backup log {}", logName);
+    LOG.info("Backup log {} at position {}", logName, lastPosition);
     // Backup in-memory states
     backupOutput.writeLong(lastPosition);
     backupOutput.writeString(currentLeader);
@@ -230,7 +236,7 @@ public class DefaultDistributedLogstreamService
       // pick the correct restore strategy and execute forever until the log is restored, e.g.
       // lastPosition >= backupPosition.
       while (lastPosition < backupPosition) {
-        LOG.trace("Restoring local log from position {} to {}", lastPosition, backupInput);
+        LOG.debug("Restoring local log from position {} to {}", lastPosition, backupPosition);
         try {
           final PartitionLeaderStrategyPicker strategyPicker = this.buildRestoreStrategyPicker();
           final long lastUpdatedPosition =
@@ -275,9 +281,12 @@ public class DefaultDistributedLogstreamService
 
     final SnapshotRestoreStrategy snapshotRestoreStrategy =
         new SnapshotRestoreStrategy(
-            restoreClientFactory, restoreClient, partitionId, logStream, logReplicator,
-          LogstreamConfig.getConfig(localMemberId, partitionId).join()
-          );
+            restoreClientFactory,
+            restoreClient,
+            partitionId,
+            logStream,
+            logReplicator,
+            LogstreamConfig.getConfig(localMemberId, partitionId).join());
     return new PartitionLeaderStrategyPicker(
         restoreClient, logReplicator, snapshotRestoreStrategy, localMemberId, restoreThreadContext);
   }
