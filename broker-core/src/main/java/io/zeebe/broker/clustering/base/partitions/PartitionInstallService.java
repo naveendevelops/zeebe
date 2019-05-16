@@ -143,8 +143,7 @@ public class PartitionInstallService extends Actor
     openLogStreamServiceName = leaderOpenLogStreamServiceName(logName);
     followerPartitionServiceName = followerPartitionServiceName(logName);
 
-    restoreContext =
-        new BrokerRestoreContext(partitionId, localMemberId, communicationService, leaderElection);
+    restoreContext = new BrokerRestoreContext(partitionId, localMemberId, communicationService);
 
     startContext.getScheduler().submitActor(this);
   }
@@ -162,7 +161,6 @@ public class PartitionInstallService extends Actor
         (leaderElection, e) -> {
           if (e == null) {
             leaderElection.addListener(this);
-            restoreContext.updateLogstreamConfig();
           } else {
             LOG.error("Could not install leader election for partition {}", partitionId, e);
           }

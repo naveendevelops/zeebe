@@ -19,28 +19,38 @@ package io.zeebe.broker.logstreams.restore;
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
+import io.atomix.primitive.partition.Partition;
+import io.atomix.protocols.raft.partition.RaftPartitionGroup;
 import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.exporter.ExporterManagerService;
+import io.zeebe.distributedlog.impl.DistributedLogstreamName;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.distributedlog.restore.RestoreServer;
 import io.zeebe.engine.state.replication.StateReplication;
 import io.zeebe.logstreams.state.SnapshotReplication;
 
-public class BrokerRestoreFactory implements RestoreClientFactory {
+public class BrokerRestoreClientFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
   private final ClusterEventService eventService;
+  private final RaftPartitionGroup partitionGroup;
 
-  public BrokerRestoreFactory(
-      ClusterCommunicationService communicationService, ClusterEventService eventService) {
+  public BrokerRestoreClientFactory(
+      ClusterCommunicationService communicationService,
+      ClusterEventService eventService,
+      RaftPartitionGroup partitionGroup) {
     this.communicationService = communicationService;
     this.eventService = eventService;
+    this.partitionGroup = partitionGroup;
   }
 
   @Override
   public RestoreClient createClient(int partitionId) {
+    final String partitionKey = DistributedLogstreamName.getPartitionKey(partitionId);
+    final Partition partition = partitionGroup.getPartition(partitionKey);
     return new BrokerRestoreClient(
         communicationService,
+        partition,
         getLogReplicationTopic(partitionId),
         getRestoreInfoTopic(partitionId),
         getSnapshotRequestTopic(partitionId),
@@ -66,15 +76,15 @@ public class BrokerRestoreFactory implements RestoreClientFactory {
     return new StateReplication(eventService, partitionId, ExporterManagerService.PROCESSOR_NAME);
   }
 
-  private String getLogReplicationTopic(int partitionId) {
+  static String getLogReplicationTopic(int partitionId) {
     return String.format("log-replication-%d", partitionId);
   }
 
-  private String getRestoreInfoTopic(int partitionId) {
+  static String getRestoreInfoTopic(int partitionId) {
     return String.format("restore-info-%d", partitionId);
   }
 
-  private String getSnapshotRequestTopic(int partitionId) {
+  static String getSnapshotRequestTopic(int partitionId) {
     return String.format("snapshot-request-%d", partitionId);
   }
 

@@ -20,6 +20,7 @@ import io.atomix.utils.concurrent.Scheduler;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
+import io.zeebe.distributedlog.restore.RestoreNodeProvider;
 import io.zeebe.distributedlog.restore.RestoreStrategy;
 import io.zeebe.distributedlog.restore.RestoreStrategyPicker;
 import io.zeebe.distributedlog.restore.log.LogReplicator;
@@ -32,23 +33,23 @@ import java.util.concurrent.CompletableFuture;
  * election, and retry. If there is no leader, then it will simply retry forever with a slight
  * delay.
  */
-public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
+public class DefaultStrategyPicker implements RestoreStrategyPicker {
   private final RestoreClient client;
   private final SnapshotRestoreStrategy snapshotRestoreStrategy;
-  private final String localMemberId;
   private final Scheduler scheduler;
   private final LogReplicator logReplicator;
+  private final RestoreNodeProvider nodeProvider;
 
-  public PartitionLeaderStrategyPicker(
+  public DefaultStrategyPicker(
       RestoreClient client,
+      RestoreNodeProvider nodeProvider,
       LogReplicator logReplicator,
       SnapshotRestoreStrategy snapshotRestoreStrategy,
-      String localMemberId,
       Scheduler scheduler) {
     this.client = client;
+    this.nodeProvider = nodeProvider;
     this.logReplicator = logReplicator;
     this.snapshotRestoreStrategy = snapshotRestoreStrategy;
-    this.localMemberId = localMemberId;
     this.scheduler = scheduler;
   }
 
@@ -66,14 +67,11 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
   }
 
   private void tryFindRestoreServer(CompletableFuture<MemberId> result) {
-    final MemberId leader = MemberId.from("0");
-    if (leader == null) {
-      scheduler.schedule(Duration.ofMillis(100), () -> tryFindRestoreServer(result));
-    } else if (leader.id().equals(localMemberId)) {
-      System.out.println(">>> FINDME: Should not happen");
-      // electionController.withdraw().thenRun(() -> tryFindRestoreServer(result));
+    final MemberId server = nodeProvider.provideRestoreNode();
+    if (server != null) {
+      result.complete(server);
     } else {
-      result.complete(leader);
+      scheduler.schedule(Duration.ofMillis(100), () -> tryFindRestoreServer(result));
     }
   }
 
@@ -105,7 +103,7 @@ public class PartitionLeaderStrategyPicker implements RestoreStrategyPicker {
         result.complete(() -> logReplicator.replicate(server, latestLocalPosition, backupPosition));
         break;
       case NONE:
-        result.completeExceptionally(new UnsupportedOperationException("not yet implemented"));
+        result.completeExceptionally(new UnsupportedOperationException("Not yet implemented"));
         break;
     }
 

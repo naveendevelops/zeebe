@@ -18,7 +18,6 @@ package io.zeebe.distributedlog.impl;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.StorageConfigurationManager;
 import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
-import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.SnapshotController;
@@ -68,8 +67,8 @@ public class LogstreamConfig {
     return LOGSTREAMS.get(key(nodeId, partitionId));
   }
 
-  public static RestoreClient getRestoreClient(String nodeId, int partitionId) {
-    return RESTORE_CLIENT_FACTORIES.get(nodeId).createClient(partitionId);
+  public static RestoreClientFactory getRestoreClientFactory(String nodeId) {
+    return RESTORE_CLIENT_FACTORIES.get(nodeId);
   }
 
   public static RestoreClientFactory getRestoreClientFactory(String nodeId, int partitionId) {

@@ -162,6 +162,7 @@ public class SnapshotReplicationTest {
 
     new BrokerRestoreClient(
             clusteringRule.getAtomixCluster().getCommunicationService(),
+            null,
             "",
             "",
             "snapshot-request-1",

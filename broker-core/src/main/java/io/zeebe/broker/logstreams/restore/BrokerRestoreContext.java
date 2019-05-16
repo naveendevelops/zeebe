@@ -19,7 +19,6 @@ package io.zeebe.broker.logstreams.restore;
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.zeebe.distributedlog.impl.LogstreamConfig;
-import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreServer;
 import io.zeebe.distributedlog.restore.RestoreServer.LogReplicationRequestHandler;
 import io.zeebe.distributedlog.restore.RestoreServer.RestoreInfoRequestHandler;
@@ -36,28 +35,15 @@ import io.zeebe.util.sched.future.CompletableActorFuture;
 public class BrokerRestoreContext implements AutoCloseable {
   private final int partitionId;
   private final String localMemberId;
-  private final PartitionLeaderElectionController electionController;
 
-  private BrokerRestoreFactory restoreFactory;
+  private ClusterCommunicationService communicationService;
   private RestoreServer server;
 
   public BrokerRestoreContext(
-      int partitionId,
-      String localMemberId,
-      ClusterCommunicationService communicationService,
-      PartitionLeaderElectionController electionController) {
+      int partitionId, String localMemberId, ClusterCommunicationService communicationService) {
     this.partitionId = partitionId;
     this.localMemberId = localMemberId;
-    this.electionController = electionController;
-    this.restoreFactory = new BrokerRestoreFactory(communicationService, null);
-  }
-
-  public void updateLogstreamConfig() {
-    LogstreamConfig.putLeaderElectionController(localMemberId, partitionId, electionController);
-  }
-
-  public void clearLogstreamConfig() {
-    LogstreamConfig.removeLeaderElectionController(localMemberId, partitionId);
+    this.communicationService = communicationService;
   }
 
   public void setProcessorSnapshotController(SnapshotController snapshotController) {
@@ -71,7 +57,6 @@ public class BrokerRestoreContext implements AutoCloseable {
   @Override
   public void close() {
     stopRestoreServer();
-    clearLogstreamConfig();
   }
 
   public CompletableActorFuture<Void> startRestoreServer(
@@ -89,7 +74,7 @@ public class BrokerRestoreContext implements AutoCloseable {
         new DefaultSnapshotInfoRequestHandler(
             processorSnapshotController, exporterSnapshotController);
 
-    this.server = restoreFactory.createServer(partitionId);
+    this.server = createServer();
     this.server
         .serve(logReplicationHandler)
         .thenCompose(nothing -> server.serve(restoreInfoHandler))
@@ -104,5 +89,14 @@ public class BrokerRestoreContext implements AutoCloseable {
       server.close();
       server = null;
     }
+  }
+
+  private BrokerRestoreServer createServer() {
+    return new BrokerRestoreServer(
+        communicationService,
+        BrokerRestoreClientFactory.getLogReplicationTopic(partitionId),
+        BrokerRestoreClientFactory.getRestoreInfoTopic(partitionId),
+        BrokerRestoreClientFactory.getSnapshotRequestTopic(partitionId),
+        BrokerRestoreClientFactory.getSnapshotInfoRequestTopic(partitionId));
   }
 }
