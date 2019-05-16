@@ -189,7 +189,6 @@ public class PartitionInstallService extends Actor
   }
 
   private void transitionToLeader(CompletableActorFuture<Void> transitionComplete, long term) {
-    //    removeSnapshotControllerService();
     final ActorFuture<Void> removeFuture = removeFollowerPartitionService();
     final ActorFuture<Void> installFuture = installLeaderPartition(term);
     actor.runOnCompletion(
@@ -214,11 +213,9 @@ public class PartitionInstallService extends Actor
   }
 
   private void transitionToFollower(CompletableActorFuture<Void> transitionComplete) {
-    //    removeSnapshotControllerService();
     final ActorFuture<Void> removeFuture = removeLeaderPartitionService();
     final ActorFuture<Partition> installFuture = installFollowerPartition();
 
-    // TODO: is there the possibility of conflicts due to the concurrent partitions?
     actor.runOnCompletion(
         Arrays.asList((ActorFuture) removeFuture, (ActorFuture) installFuture),
         e -> transitionComplete.complete(null));
