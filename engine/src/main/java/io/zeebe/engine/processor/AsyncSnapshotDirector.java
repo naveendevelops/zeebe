@@ -113,10 +113,10 @@ public class AsyncSnapshotDirector extends Actor {
     logStream.removeOnCommitPositionUpdatedCondition(commitCondition);
 
     try {
-      actor.runOnCompletion(
+      actor.runOnCompletionBlockingCurrentPhase(
           streamProcessorController.getLastWrittenPositionAsync(),
           (writtenPosition, e1) ->
-              actor.runOnCompletion(
+              actor.runOnCompletionBlockingCurrentPhase(
                   streamProcessorController.getLastProcessedPositionAsync(),
                   (processedPosition, e2) ->
                       enforceSnapshotCreation(writtenPosition, processedPosition)));
@@ -232,7 +232,7 @@ public class AsyncSnapshotDirector extends Actor {
     }
   }
 
-  public void close() {
-    actor.close();
+  public ActorFuture<Void> close() {
+    return actor.close();
   }
 }
