@@ -70,7 +70,6 @@ public class StreamProcessorServiceFactory implements Service<StreamProcessorSer
 
     protected MetadataFilter customEventFilter;
     private StreamProcessorFactory streamProcessorFactory;
-    private boolean enableDeleteData;
 
     public Builder(Partition partition, ServiceName<Partition> serviceName) {
       this.logStream = partition.getLogStream();
@@ -94,11 +93,6 @@ public class StreamProcessorServiceFactory implements Service<StreamProcessorSer
 
     public Builder snapshotController(SnapshotController snapshotController) {
       this.snapshotController = snapshotController;
-      return this;
-    }
-
-    public Builder deleteDataOnSnapshot(final boolean enabled) {
-      this.enableDeleteData = enabled;
       return this;
     }
 

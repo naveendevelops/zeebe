@@ -115,7 +115,6 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
                     .setExporterPositionSupplier(exporterStreamProcessor::getPositionToRecoverFrom);
                 return exporterStreamProcessor;
               })
-          .deleteDataOnSnapshot(false)
           .build();
     }
   }

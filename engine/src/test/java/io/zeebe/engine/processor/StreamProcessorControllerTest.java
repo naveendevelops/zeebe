@@ -725,7 +725,6 @@ public class StreamProcessorControllerTest {
 
     asyncSnapshotDirector =
         new AsyncSnapshotDirector(
-            PROCESSOR_NAME,
             streamProcessorController,
             snapshotController,
             logStreamRule.getLogStream(),

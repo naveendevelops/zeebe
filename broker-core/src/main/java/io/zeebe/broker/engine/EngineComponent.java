@@ -41,8 +41,7 @@ public class EngineComponent implements Component {
         .createService(STREAM_PROCESSOR_SERVICE_FACTORY, streamProcessorFactory)
         .install();
 
-    final EngineService streamProcessorService =
-        new EngineService(brokerConfiguration.getCluster());
+    final EngineService streamProcessorService = new EngineService(brokerConfiguration);
     serviceContainer
         .createService(ENGINE_SERVICE_NAME, streamProcessorService)
         .dependency(

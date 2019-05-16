@@ -64,7 +64,6 @@ public class StreamProcessorController extends Actor {
   private StreamProcessorMetrics metrics;
   private DbContext dbContext;
   private ProcessingStateMachine processingStateMachine;
-  private final int maxSnapshots;
 
   public StreamProcessorController(final StreamProcessorContext context) {
     this.streamProcessorContext = context;
@@ -80,7 +79,6 @@ public class StreamProcessorController extends Actor {
 
     this.logStreamReader = context.getLogStreamReader();
     this.logStreamWriter = context.getLogStreamWriter();
-    this.maxSnapshots = context.getMaxSnapshots();
   }
 
   @Override
@@ -161,7 +159,8 @@ public class StreamProcessorController extends Actor {
   }
 
   private long recoverFromSnapshot() throws Exception {
-    final long lowerBoundSnapshotPosition = snapshotController.recover();
+    //    final long lowerBoundSnapshotPosition = snapshotController.recover();
+    final long lowerBoundSnapshotPosition = snapshotController.getLastValidSnapshotPosition();
     final ZeebeDb zeebeDb = snapshotController.openDb();
 
     dbContext = zeebeDb.createContext();

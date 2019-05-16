@@ -24,17 +24,12 @@ import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
 import io.zeebe.broker.logstreams.state.DefaultOnDemandSnapshotReplication;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.db.ZeebeDb;
-import io.zeebe.engine.processor.AsyncSnapshotDirector;
-import io.zeebe.engine.processor.StreamProcessorService;
 import io.zeebe.logstreams.log.LogStream;
-import io.zeebe.logstreams.state.SnapshotReplication;
 import io.zeebe.logstreams.state.StateSnapshotController;
 import io.zeebe.servicecontainer.Injector;
 import io.zeebe.servicecontainer.Service;
 import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.servicecontainer.ServiceStopContext;
-import io.zeebe.util.DurationUtil;
-import java.time.Duration;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
@@ -46,7 +41,6 @@ public class Partition implements Service<Partition> {
   private final BrokerCfg brokerCfg;
   private final ClusterCommunicationService communicationService;
 
-  private SnapshotReplication stateReplication;
   private DefaultOnDemandSnapshotReplication snapshotRequestServer;
   private ExecutorService executor;
 
@@ -56,7 +50,6 @@ public class Partition implements Service<Partition> {
 
   private final Injector<LogStream> logStreamInjector = new Injector<>();
   private final Injector<StateSnapshotController> snapshotControllerInjector = new Injector<>();
-  private final Injector<StreamProcessorService> streamProcessorServiceInjector = new Injector<>();
 
   private final int partitionId;
   private final RaftState state;
@@ -88,7 +81,15 @@ public class Partition implements Service<Partition> {
 
       this.snapshotController.consumeReplicatedSnapshots(logStream::delete);
     } else {
-      createSnapshotDirector(startContext);
+      try {
+        snapshotController.recover();
+      } catch (Exception e) {
+        Loggers.SERVICES_LOGGER.error(
+            String.format(
+                "Unexpected error occurred while recovering snapshot controller on partition %d",
+                partitionId),
+            e);
+      }
       executor =
           Executors.newSingleThreadExecutor(
               (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
@@ -101,22 +102,6 @@ public class Partition implements Service<Partition> {
             this.snapshotController.replicateLatestSnapshot(Runnable::run);
           });
     }
-  }
-
-  private void createSnapshotDirector(final ServiceStartContext startContext) {
-    final Duration snapshotPeriod = DurationUtil.parse(brokerCfg.getData().getSnapshotPeriod());
-    final int maxSnapshots = brokerCfg.getData().getMaxSnapshots();
-
-    final AsyncSnapshotDirector asyncSnapshotDirector =
-        new AsyncSnapshotDirector(
-            EngineService.PROCESSOR_NAME,
-            streamProcessorServiceInjector.getValue().getController(),
-            snapshotController,
-            logStream,
-            snapshotPeriod,
-            maxSnapshots);
-
-    startContext.getScheduler().submitActor(asyncSnapshotDirector);
   }
 
   private long getLowestReplicatedExportedPosition() {
@@ -144,11 +129,11 @@ public class Partition implements Service<Partition> {
           "Unexpected error occurred while obtaining the lowest exported position at a follower.",
           e);
     } finally {
-      try {
-        snapshotController.close();
-      } catch (Exception e) {
-        LOG.error("Unexpected error occurred while closing the DB.", e);
-      }
+      //      try {
+      //        snapshotController.close();
+      //      } catch (Exception e) {
+      //        LOG.error("Unexpected error occurred while closing the DB.", e);
+      //      }
     }
 
     return -1;
@@ -156,7 +141,6 @@ public class Partition implements Service<Partition> {
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    stateReplication.close();
     if (snapshotRequestServer != null) {
       snapshotRequestServer.close();
     }
@@ -188,10 +172,6 @@ public class Partition implements Service<Partition> {
 
   public Injector<LogStream> getLogStreamInjector() {
     return logStreamInjector;
-  }
-
-  public Injector<StreamProcessorService> getStreamProcessorServiceInjector() {
-    return streamProcessorServiceInjector;
   }
 
   public Injector<StateSnapshotController> getSnapshotControllerInjector() {

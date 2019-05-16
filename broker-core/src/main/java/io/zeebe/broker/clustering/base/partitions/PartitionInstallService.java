@@ -28,14 +28,12 @@ import static io.zeebe.broker.clustering.base.partitions.PartitionServiceNames.l
 import static io.zeebe.broker.clustering.base.partitions.PartitionServiceNames.leaderPartitionServiceName;
 import static io.zeebe.broker.clustering.base.partitions.PartitionServiceNames.partitionLeaderElectionServiceName;
 import static io.zeebe.broker.engine.EngineServiceNames.stateStorageFactoryServiceName;
-import static io.zeebe.engine.processor.StreamProcessorServiceNames.streamProcessorService;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.distributedLogPartitionServiceName;
 import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.stateSnapshotControllerServiceName;
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.Loggers;
-import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.system.configuration.BrokerCfg;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.impl.DistributedLogstreamPartition;
@@ -148,6 +146,8 @@ public class PartitionInstallService extends Actor
     followerPartitionServiceName = followerPartitionServiceName(logName);
     snapshotControllerServiceName = stateSnapshotControllerServiceName(logName);
 
+    installSnapshotControllerService();
+
     startContext.getScheduler().submitActor(this);
   }
 
@@ -189,7 +189,7 @@ public class PartitionInstallService extends Actor
   }
 
   private void transitionToLeader(CompletableActorFuture<Void> transitionComplete, long term) {
-    removeSnapshotControllerService();
+    //    removeSnapshotControllerService();
     final ActorFuture<Void> removeFuture = removeFollowerPartitionService();
     final ActorFuture<Void> installFuture = installLeaderPartition(term);
     actor.runOnCompletion(
@@ -214,7 +214,7 @@ public class PartitionInstallService extends Actor
   }
 
   private void transitionToFollower(CompletableActorFuture<Void> transitionComplete) {
-    removeSnapshotControllerService();
+    //    removeSnapshotControllerService();
     final ActorFuture<Void> removeFuture = removeLeaderPartitionService();
     final ActorFuture<Partition> installFuture = installFollowerPartition();
 
@@ -241,8 +241,6 @@ public class PartitionInstallService extends Actor
     final CompositeServiceBuilder leaderInstallService =
         startContext.createComposite(leaderInstallRootServiceName);
 
-    installSnapshotServices(RaftState.LEADER);
-
     // Get an instance of DistributedLog
     final DistributedLogstreamPartition distributedLogstreamPartition =
         new DistributedLogstreamPartition(partitionId, leaderTerm);
@@ -263,9 +261,6 @@ public class PartitionInstallService extends Actor
 
     leaderInstallService
         .createService(leaderPartitionServiceName, partition)
-        .dependency(
-            streamProcessorService(logName, EngineService.PROCESSOR_NAME),
-            partition.getStreamProcessorServiceInjector())
         .dependency(snapshotControllerServiceName, partition.getSnapshotControllerInjector())
         .dependency(openLogStreamServiceName)
         .dependency(logStreamServiceName, partition.getLogStreamInjector())
@@ -277,7 +272,6 @@ public class PartitionInstallService extends Actor
 
   private ActorFuture<Partition> installFollowerPartition() {
     LOG.debug("Installing follower partition service for partition {}", partitionId);
-    installSnapshotServices(RaftState.FOLLOWER);
 
     final Partition partition =
         new Partition(brokerCfg, clusterCommunicationService, partitionId, RaftState.FOLLOWER);
@@ -298,19 +292,18 @@ public class PartitionInstallService extends Actor
     return CompletableActorFuture.completed(null);
   }
 
-  private void installSnapshotServices(final RaftState role) {
-    LOG.debug(
-        "Installing snapshot controller service for partition {} as {} role", partitionId, role);
+  private void installSnapshotControllerService() {
+    LOG.debug("Installing snapshot controller service for partition {}", partitionId);
 
     final StateSnapshotControllerService snapshotControllerService =
-        new StateSnapshotControllerService(brokerCfg, clusterEventService, partitionId, role);
+        new StateSnapshotControllerService(brokerCfg, clusterEventService, partitionId);
 
     startContext
         .createService(snapshotControllerServiceName, snapshotControllerService)
         .dependency(
             stateStorageFactoryServiceName(logName),
             snapshotControllerService.getStateStorageFactoryInjector())
-        .install(); // TODO: do we have to wait for the previous service to be removed?
+        .install();
   }
 
   private void removeSnapshotControllerService() {

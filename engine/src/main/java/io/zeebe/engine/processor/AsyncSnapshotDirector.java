@@ -69,7 +69,6 @@ public class AsyncSnapshotDirector extends Actor {
   private long lastValidSnapshotPosition;
 
   public AsyncSnapshotDirector(
-      String name,
       StreamProcessorController streamProcessorController,
       SnapshotController snapshotController,
       LogStream logStream,
@@ -78,8 +77,8 @@ public class AsyncSnapshotDirector extends Actor {
     this.streamProcessorController = streamProcessorController;
     this.snapshotController = snapshotController;
     this.logStream = logStream;
-    this.processorName = name;
-    this.name = name + "-snapshot-director";
+    this.processorName = streamProcessorController.getName();
+    this.name = processorName + "-snapshot-director";
     this.snapshotRate = snapshotRate;
     this.metrics = streamProcessorController.getMetrics();
     this.maxSnapshots = Math.max(maxSnapshots, 1);

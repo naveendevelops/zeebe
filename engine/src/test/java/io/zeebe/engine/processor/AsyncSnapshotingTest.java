@@ -108,7 +108,6 @@ public class AsyncSnapshotingTest {
   private void createAsyncSnapshotDirector(ActorScheduler actorScheduler) {
     asyncSnapshotDirector =
         new AsyncSnapshotDirector(
-            PROCESSOR_NAME,
             mockStreamProcessorController,
             snapshotController,
             logStream,

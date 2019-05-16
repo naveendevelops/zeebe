@@ -184,7 +184,7 @@ public class StateSnapshotController implements SnapshotController {
   }
 
   @Override
-  public ZeebeDb openDb() {
+  public synchronized ZeebeDb openDb() {
     if (db == null) {
       final File runtimeDirectory = storage.getRuntimeDirectory();
       db = zeebeDbFactory.createDb(runtimeDirectory);
