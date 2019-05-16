@@ -16,7 +16,6 @@
 package io.zeebe.distributedlog.restore.impl;
 
 import io.atomix.cluster.MemberId;
-import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
@@ -28,6 +27,8 @@ import io.zeebe.logstreams.state.SnapshotReplication;
 import io.zeebe.logstreams.state.SnapshotRequester;
 import io.zeebe.logstreams.state.StateStorage;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +45,6 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
   private long backupPosition;
   private ReplicationController processorSnapshotReplication;
   private ReplicationController exporterSnapshotReplication;
-  private ClusterCommunicationService communicationService;
   private SnapshotReplication processorSnapshotReplicationConsumer;
   private SnapshotReplication exporterSnapshotReplicationConsumer;
 
@@ -66,44 +66,31 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
 
   private void getSnapshotControllers(RestoreClient client) {
     exporterSnapshotReplicationConsumer =
-        restoreClientFactory.createExporterSnapshotReplicationConsumer(partitionId);
+        client.createExporterSnapshotReplicationConsumer(partitionId);
     processorSnapshotReplicationConsumer =
-        restoreClientFactory.createProcessorSnapshotReplicationConsumer(partitionId);
-    final StateStorage processorStorage =
-        createStorage(
-            configuration.getStatesDirectory().toString(), partitionId, "zb-stream-processor");
-    processorSnapshotReplication = // TODO: pass Correct StateStorage directory
-        new ReplicationController(
-            processorSnapshotReplicationConsumer, processorStorage, () -> {}, () -> -1L);
+        client.createProcessorSnapshotReplicationConsumer(partitionId);
+    final StateStorage processorTmpStorage =
+        createTmpStateDirectory(configuration.getStatesDirectory().toString(), "processor");
+    final StateStorage exporterTmpStorage =
+        createTmpStateDirectory(configuration.getStatesDirectory().toString(), "exporter");
 
-    final StateStorage exporterStorage =
-        createStorage(configuration.getStatesDirectory().toString(), 1003, "exporter");
+    processorSnapshotReplication =
+        new ReplicationController(
+            processorSnapshotReplicationConsumer, processorTmpStorage, () -> {}, () -> -1L);
+
+    final StateStorage exporterStorage = client.getExporterStateStorage(partitionId);
     exporterSnapshotReplication =
         new ReplicationController(
-            exporterSnapshotReplicationConsumer, exporterStorage, () -> {}, () -> -1L);
+            exporterSnapshotReplicationConsumer, exporterTmpStorage, () -> {}, () -> -1L);
 
+    final StateStorage processorStorage = client.getProcessorStateStorage(partitionId);
     this.requester =
-        new SnapshotRequester(client, processorSnapshotReplication, exporterSnapshotReplication);
-  }
-
-  // FIXME: this method is copied from StateStorageFactory.
-  private StateStorage createStorage(
-      String rootDirectory, final int processorId, final String processorName) {
-    final String name = String.format("%d_%s", processorId, processorName);
-    final File processorDirectory = new File(rootDirectory, name);
-
-    final File runtimeDirectory = new File(processorDirectory, "runtime");
-    final File snapshotsDirectory = new File(processorDirectory, "snapshots");
-
-    if (!processorDirectory.exists()) {
-      processorDirectory.mkdir();
-    }
-
-    if (!snapshotsDirectory.exists()) {
-      snapshotsDirectory.mkdir();
-    }
-
-    return new StateStorage(runtimeDirectory, snapshotsDirectory);
+        new SnapshotRequester(
+            client,
+            processorSnapshotReplication,
+            exporterSnapshotReplication,
+            pos -> moveValidSnapshot(pos, processorTmpStorage, processorStorage),
+            pos -> moveValidSnapshot(pos, exporterTmpStorage, exporterStorage));
   }
 
   @Override
@@ -147,5 +134,24 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
 
   public void setServer(MemberId server) {
     this.server = server;
+  }
+
+  private StateStorage createTmpStateDirectory(final String rootDirectory, final String name) {
+    final File processorDirectory = new File(rootDirectory, "restore-" + name);
+    if (!processorDirectory.exists()) {
+      processorDirectory.mkdirs();
+    }
+    return new StateStorage(processorDirectory.toString());
+  }
+
+  private void moveValidSnapshot(
+      long snapshotPosition, StateStorage tmpStorage, StateStorage storage) {
+    try {
+      Files.move(
+          tmpStorage.getSnapshotDirectoryFor(snapshotPosition).toPath(),
+          storage.getSnapshotDirectoryFor(snapshotPosition).toPath());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

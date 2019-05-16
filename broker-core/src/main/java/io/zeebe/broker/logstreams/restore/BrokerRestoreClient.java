@@ -19,12 +19,21 @@ package io.zeebe.broker.logstreams.restore;
 
 import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
+import io.atomix.cluster.messaging.ClusterEventService;
 import io.atomix.primitive.partition.Partition;
+import io.zeebe.broker.engine.EngineService;
+import io.zeebe.broker.exporter.ExporterManagerService;
+import io.zeebe.distributedlog.StorageConfiguration;
+import io.zeebe.distributedlog.impl.LogstreamConfig;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.log.LogReplicationRequest;
 import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
+import io.zeebe.engine.state.StateStorageFactory;
+import io.zeebe.engine.state.replication.StateReplication;
+import io.zeebe.logstreams.state.SnapshotReplication;
+import io.zeebe.logstreams.state.StateStorage;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -37,25 +46,58 @@ public class BrokerRestoreClient implements RestoreClient {
   private final String restoreInfoTopic;
   private final String snapshotRequestTopic;
   private final String snapshotInfoRequestTopic;
+  private final ClusterEventService eventService;
+  private String localMemberId;
 
   public BrokerRestoreClient(
       ClusterCommunicationService communicationService,
+      String localMemberId,
       Partition partition,
       String logReplicationTopic,
       String restoreInfoTopic,
       String snapshotRequestTopic,
-      String snapshotInfoRequestTopic) {
+      String snapshotInfoRequestTopic,
+      ClusterEventService eventService) {
     this.communicationService = communicationService;
+    this.localMemberId = localMemberId;
     this.partition = partition;
     this.logReplicationTopic = logReplicationTopic;
     this.restoreInfoTopic = restoreInfoTopic;
     this.snapshotRequestTopic = snapshotRequestTopic;
     this.snapshotInfoRequestTopic = snapshotInfoRequestTopic;
+    this.eventService = eventService;
   }
 
   @Override
   public Collection<MemberId> getPartitionMembers() {
     return partition.members();
+  }
+
+  @Override
+  public SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId) {
+    return new StateReplication(eventService, partitionId, EngineService.PROCESSOR_NAME);
+  }
+
+  @Override
+  public SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId) {
+    return new StateReplication(eventService, partitionId, ExporterManagerService.PROCESSOR_NAME);
+  }
+
+  @Override
+  public StateStorage getProcessorStateStorage(int partitionId) {
+    final StorageConfiguration configuration =
+        LogstreamConfig.getConfig(localMemberId, partitionId).join();
+    return new StateStorageFactory(configuration.getStatesDirectory())
+        .create(partitionId, EngineService.PROCESSOR_NAME);
+  }
+
+  @Override
+  public StateStorage getExporterStateStorage(int partitionId) {
+    final StorageConfiguration configuration =
+        LogstreamConfig.getConfig(localMemberId, partitionId).join();
+    return new StateStorageFactory(configuration.getStatesDirectory())
+        .create(
+            ExporterManagerService.EXPORTER_PROCESSOR_ID, ExporterManagerService.PROCESSOR_NAME);
   }
 
   @Override

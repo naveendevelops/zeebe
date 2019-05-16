@@ -162,11 +162,13 @@ public class SnapshotReplicationTest {
 
     new BrokerRestoreClient(
             clusteringRule.getAtomixCluster().getCommunicationService(),
+            "2",
             null,
             "",
             "",
             "snapshot-request-1",
-            "")
+            "",
+            clusteringRule.getAtomixCluster().getEventService())
         .requestLatestSnapshot(MemberId.from(String.valueOf(leaderNodeId)));
 
     // then

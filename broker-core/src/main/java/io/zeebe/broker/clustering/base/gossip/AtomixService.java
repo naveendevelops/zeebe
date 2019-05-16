@@ -127,7 +127,10 @@ public class AtomixService implements Service<Atomix> {
 
     final BrokerRestoreClientFactory restoreFactory =
         new BrokerRestoreClientFactory(
-            atomix.getCommunicationService(), atomix.getEventService(), partitionGroup);
+            atomix.getCommunicationService(),
+            atomix.getEventService(),
+            partitionGroup,
+            localMemberId);
     LogstreamConfig.putRestoreClientFactory(localMemberId, restoreFactory);
   }
 

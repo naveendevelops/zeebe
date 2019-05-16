@@ -15,14 +15,8 @@
  */
 package io.zeebe.distributedlog.restore;
 
-import io.zeebe.logstreams.state.SnapshotReplication;
-
 public interface RestoreClientFactory {
 
   /** @return a configured {@link RestoreClient} */
   RestoreClient createClient(int partitionId);
-
-  SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId);
-
-  SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId);
 }

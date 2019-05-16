@@ -21,6 +21,8 @@ import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.log.LogReplicationRequest;
 import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
+import io.zeebe.logstreams.state.SnapshotReplication;
+import io.zeebe.logstreams.state.StateStorage;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,6 +53,26 @@ public class ControllableRestoreClient implements RestoreClient {
 
   public List<LogReplicationRequest> getRequestLog() {
     return requestLog;
+  }
+
+  @Override
+  public SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId) {
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  @Override
+  public SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId) {
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  @Override
+  public StateStorage getProcessorStateStorage(int partitionId) {
+    throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  @Override
+  public StateStorage getExporterStateStorage(int partitionId) {
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override

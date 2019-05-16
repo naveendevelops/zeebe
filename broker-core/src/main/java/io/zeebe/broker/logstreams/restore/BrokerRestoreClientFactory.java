@@ -34,14 +34,17 @@ public class BrokerRestoreClientFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
   private final ClusterEventService eventService;
   private final RaftPartitionGroup partitionGroup;
+  private final String localMemberId;
 
   public BrokerRestoreClientFactory(
       ClusterCommunicationService communicationService,
       ClusterEventService eventService,
-      RaftPartitionGroup partitionGroup) {
+      RaftPartitionGroup partitionGroup,
+      String localMemberId) {
     this.communicationService = communicationService;
     this.eventService = eventService;
     this.partitionGroup = partitionGroup;
+    this.localMemberId = localMemberId;
   }
 
   @Override
@@ -50,11 +53,13 @@ public class BrokerRestoreClientFactory implements RestoreClientFactory {
     final Partition partition = partitionGroup.getPartition(partitionKey);
     return new BrokerRestoreClient(
         communicationService,
+        localMemberId,
         partition,
         getLogReplicationTopic(partitionId),
         getRestoreInfoTopic(partitionId),
         getSnapshotRequestTopic(partitionId),
-        getSnapshotInfoRequestTopic(partitionId));
+        getSnapshotInfoRequestTopic(partitionId),
+        eventService);
   }
 
   public RestoreServer createServer(int partitionId) {
@@ -64,16 +69,6 @@ public class BrokerRestoreClientFactory implements RestoreClientFactory {
         getRestoreInfoTopic(partitionId),
         getSnapshotRequestTopic(partitionId),
         getSnapshotInfoRequestTopic(partitionId));
-  }
-
-  @Override
-  public SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId) {
-    return new StateReplication(eventService, partitionId, EngineService.PROCESSOR_NAME);
-  }
-
-  @Override
-  public SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId) {
-    return new StateReplication(eventService, partitionId, ExporterManagerService.PROCESSOR_NAME);
   }
 
   static String getLogReplicationTopic(int partitionId) {
