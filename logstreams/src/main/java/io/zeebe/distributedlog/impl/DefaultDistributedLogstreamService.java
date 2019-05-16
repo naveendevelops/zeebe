@@ -289,7 +289,7 @@ public class DefaultDistributedLogstreamService
             logReplicator,
             LogstreamConfig.getConfig(localMemberId, partitionId).join());
     final RestoreNodeProvider nodeProvider =
-        new CyclicPartitionNodeProvider(restoreClient, getLocalMemberId());
+        new CyclicPartitionNodeProvider(clusterContext, getLocalMemberId());
 
     return new DefaultStrategyPicker(
         restoreClient, nodeProvider, logReplicator, snapshotRestoreStrategy, restoreThreadContext);

@@ -16,7 +16,8 @@
 package io.zeebe.distributedlog.restore.impl;
 
 import io.atomix.cluster.MemberId;
-import io.zeebe.distributedlog.restore.RestoreClient;
+import io.atomix.protocols.raft.cluster.RaftMember;
+import io.atomix.protocols.raft.cluster.impl.RaftClusterContext;
 import io.zeebe.distributedlog.restore.RestoreNodeProvider;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -26,12 +27,12 @@ import java.util.Queue;
  * refresh the list of members it should use.
  */
 public class CyclicPartitionNodeProvider implements RestoreNodeProvider {
-  private final RestoreClient client;
+  private final RaftClusterContext clusterContext;
   private final MemberId localMemberId;
   private final Queue<MemberId> members;
 
-  public CyclicPartitionNodeProvider(RestoreClient client, MemberId localMemberId) {
-    this.client = client;
+  public CyclicPartitionNodeProvider(RaftClusterContext clusterContext, MemberId localMemberId) {
+    this.clusterContext = clusterContext;
     this.localMemberId = localMemberId;
     this.members = new ArrayDeque<>();
   }
@@ -43,7 +44,8 @@ public class CyclicPartitionNodeProvider implements RestoreNodeProvider {
 
   private Queue<MemberId> memberQueue() {
     if (members.isEmpty()) {
-      client.getPartitionMembers().stream()
+      clusterContext.getMembers().stream()
+          .map(RaftMember::memberId)
           .filter(m -> !m.equals(localMemberId))
           .forEach(members::add);
     }
