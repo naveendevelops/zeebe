@@ -275,7 +275,9 @@ public class DefaultDistributedLogstreamService
 
     final SnapshotRestoreStrategy snapshotRestoreStrategy =
         new SnapshotRestoreStrategy(
-            restoreClientFactory, restoreClient, partitionId, logStream, logReplicator);
+            restoreClientFactory, restoreClient, partitionId, logStream, logReplicator,
+          LogstreamConfig.getConfig(localMemberId, partitionId).join()
+          );
     return new PartitionLeaderStrategyPicker(
         restoreClient, logReplicator, snapshotRestoreStrategy, localMemberId, restoreThreadContext);
   }
