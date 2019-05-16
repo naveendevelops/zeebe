@@ -40,6 +40,7 @@ import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -87,7 +88,6 @@ public class AsyncSnapshotingTest {
     final ActorScheduler actorScheduler = logStreamRule.getActorScheduler();
 
     createStreamProcessorControllerMock();
-
     createAsyncSnapshotDirector(actorScheduler);
   }
 
@@ -269,6 +269,7 @@ public class AsyncSnapshotingTest {
 
     logStreamRule.getClock().addTime(Duration.ofMinutes(1));
     verify(snapshotController, TIMEOUT).moveValidSnapshot(lastProcessedPosition);
+    verify(snapshotController, TIMEOUT).replicateLatestSnapshot(any(Consumer.class));
 
     // when
     lastProcessedPosition = 26L;
