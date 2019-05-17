@@ -90,7 +90,6 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
     this.requester =
         new SnapshotRequester(
             client,
-            latestLocalPosition,
             processorSnapshotReplication,
             exporterSnapshotReplication,
             pos -> moveValidSnapshot(pos, processorTmpStorage, processorStorage),
@@ -111,7 +110,11 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
   private CompletableFuture<Long> onSnapshotsReplicated(long processorSnapshotPosition) {
     processorSnapshotReplicationConsumer.close();
     exporterSnapshotReplicationConsumer.close();
-    final long lastEventPosition = getValidSnapshotPosition(processorSnapshotPosition);
+    final long lastEventPosition =
+        Math.max(
+            latestLocalPosition,
+            getValidSnapshotPosition(
+                processorSnapshotPosition)); // if exporter position is behind local logstream
     // logStream.delete(lastEventPosition);
     LoggerFactory.getLogger("Snapshot restore")
         .info("Snapshot replicated {}, backup position {}", lastEventPosition, backupPosition);

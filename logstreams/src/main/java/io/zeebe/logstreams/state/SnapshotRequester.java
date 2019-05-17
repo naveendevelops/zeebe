@@ -30,7 +30,6 @@ public class SnapshotRequester {
 
   public SnapshotRequester(
       RestoreClient client,
-      long latestLocalPosition,
       ReplicationController processorSnapshotController,
       ReplicationController exporterSnapshotController,
       Consumer<Long> processorSnapshotConsumer,
