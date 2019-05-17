@@ -17,14 +17,12 @@ package io.zeebe.distributedlog.impl;
 
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.StorageConfigurationManager;
-import io.zeebe.distributedlog.restore.PartitionLeaderElectionController;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.logstreams.log.LogStream;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.servicecontainer.ServiceContainer;
 import io.zeebe.util.sched.future.ActorFuture;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /* Used by DefaultDistributedLogstreamService to get the node specific objects/configuration */
@@ -40,8 +38,6 @@ public class LogstreamConfig {
       new ConcurrentHashMap<>();
   private static final Map<String, SnapshotController> EXPORTER_SNAPSHOT_CONTROLLER =
       new ConcurrentHashMap<>();
-  private static final Map<String, CompletableFuture<PartitionLeaderElectionController>>
-      LEADER_ELECTION_CONTROLLERS = new ConcurrentHashMap<>();
 
   public static void putServiceContainer(String nodeId, ServiceContainer serviceContainer) {
     SERVICE_CONTAINERS.put(nodeId, serviceContainer);
@@ -81,21 +77,6 @@ public class LogstreamConfig {
 
   public static void removeRestoreClientFactory(String nodeId) {
     RESTORE_CLIENT_FACTORIES.remove(nodeId);
-  }
-
-  public static CompletableFuture<PartitionLeaderElectionController> getLeaderElectionController(
-      String nodeId, int partitionId) {
-    return LEADER_ELECTION_CONTROLLERS.computeIfAbsent(
-        key(nodeId, partitionId), k -> new CompletableFuture<>());
-  }
-
-  public static void putLeaderElectionController(
-      String nodeId, int partitionId, PartitionLeaderElectionController controller) {
-    getLeaderElectionController(nodeId, partitionId).complete(controller);
-  }
-
-  public static void removeLeaderElectionController(String nodeId, int partitionId) {
-    LEADER_ELECTION_CONTROLLERS.remove(key(nodeId, partitionId));
   }
 
   public static void putProcesorSnapshotController(

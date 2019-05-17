@@ -32,6 +32,7 @@ import static io.zeebe.logstreams.impl.service.LogStreamServiceNames.distributed
 
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
+import io.atomix.protocols.raft.partition.RaftPartition;
 import io.zeebe.broker.Loggers;
 import io.zeebe.broker.logstreams.restore.BrokerRestoreContext;
 import io.zeebe.broker.system.configuration.BrokerCfg;
@@ -69,6 +70,7 @@ public class PartitionInstallService extends Actor
   private final ClusterEventService clusterEventService;
   private final ClusterCommunicationService communicationService;
   private final BrokerCfg brokerCfg;
+  private final RaftPartition partition;
 
   private ServiceStartContext startContext;
   private ServiceName<LogStream> logStreamServiceName;
@@ -84,11 +86,13 @@ public class PartitionInstallService extends Actor
   private BrokerRestoreContext restoreContext;
 
   public PartitionInstallService(
+      RaftPartition partition,
       ClusterEventService clusterEventService,
       ClusterCommunicationService communicationService,
       final StorageConfiguration configuration,
       BrokerCfg brokerCfg,
       String localMemberId) {
+    this.partition = partition;
     this.configuration = configuration;
     this.partitionId = configuration.getPartitionId();
     this.clusterEventService = clusterEventService;
@@ -126,7 +130,7 @@ public class PartitionInstallService extends Actor
         .createService(stateStorageFactoryServiceName, stateStorageFactoryService)
         .install();
 
-    leaderElection = new PartitionLeaderElection(partitionId);
+    leaderElection = new PartitionLeaderElection(partition);
     final ServiceName<PartitionLeaderElection> partitionLeaderElectionServiceName =
         partitionLeaderElectionServiceName(logName);
     leaderElectionInstallFuture =
