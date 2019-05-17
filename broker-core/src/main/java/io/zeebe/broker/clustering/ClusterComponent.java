@@ -143,6 +143,7 @@ public class ClusterComponent implements Component {
         .getServiceContainer()
         .createService(PARTITIONS_BOOTSTRAP_SERVICE, partitionBootstrapService)
         .dependency(ATOMIX_SERVICE, partitionBootstrapService.getAtomixInjector())
+        .dependency(DISTRIBUTED_LOG_CREATE_SERVICE)
         .dependency(ATOMIX_JOIN_SERVICE)
         .dependency(
             RAFT_CONFIGURATION_MANAGER, partitionBootstrapService.getConfigurationManagerInjector())

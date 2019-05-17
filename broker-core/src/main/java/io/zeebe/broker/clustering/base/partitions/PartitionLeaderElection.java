@@ -17,6 +17,7 @@
  */
 package io.zeebe.broker.clustering.base.partitions;
 
+import io.atomix.cluster.MemberId;
 import io.atomix.core.Atomix;
 import io.atomix.protocols.raft.RaftServer.Role;
 import io.atomix.protocols.raft.partition.RaftPartition;
@@ -42,10 +43,9 @@ public class PartitionLeaderElection extends Actor
 
   private final int partitionId;
   private final RaftPartition partition;
-  private String memberId;
+  private MemberId memberId;
   private final List<PartitionRoleChangeListener> leaderElectionListeners;
-  private boolean isLeader =
-      false; // true if this node was the leader in the last leadership event received.
+  private Role raftRole;
   private long leaderTerm; // current term if this node is the leader.
   private CompletableActorFuture<Void> startFuture;
 
@@ -59,7 +59,7 @@ public class PartitionLeaderElection extends Actor
   public void start(ServiceStartContext startContext) {
 
     atomix = atomixInjector.getValue();
-    memberId = atomix.getMembershipService().getLocalMember().id().id();
+    memberId = atomix.getMembershipService().getLocalMember().id();
 
     LOG.info("Creating leader election for partition {} in node {}", partitionId, memberId);
 
@@ -72,6 +72,7 @@ public class PartitionLeaderElection extends Actor
   @Override
   protected void onActorStarted() {
     partition.addRoleChangeListener(this);
+    onRoleChange(partition.getRole());
     startFuture.complete(null);
   }
 
@@ -82,31 +83,33 @@ public class PartitionLeaderElection extends Actor
 
   private void onRoleChange(Role newRole) {
     switch (newRole) {
+      case LEADER:
+        if (raftRole != Role.LEADER) {
+          transitionToLeader(partition.term());
+        }
+        break;
       case INACTIVE:
       case PASSIVE:
       case PROMOTABLE:
       case CANDIDATE:
       case FOLLOWER:
-        if (isLeader) {
+      default:
+        if (raftRole == null || raftRole == Role.LEADER) {
           transitionToFollower();
         }
         break;
-      case LEADER:
-        if (!isLeader) {
-          transitionToLeader(partition.term());
-        }
-        break;
     }
+
+    LOG.debug("Partition role transitioning from {} to {}", raftRole, newRole);
+    raftRole = newRole;
   }
 
   private void transitionToFollower() {
-    isLeader = false;
     leaderElectionListeners.forEach(l -> l.onTransitionToFollower(partitionId));
   }
 
   private void transitionToLeader(long term) {
     leaderTerm = term;
-    isLeader = true;
     leaderElectionListeners.forEach(l -> l.onTransitionToLeader(partitionId, term));
   }
 
@@ -137,7 +140,7 @@ public class PartitionLeaderElection extends Actor
     actor.run(
         () -> {
           leaderElectionListeners.add(listener);
-          if (isLeader) {
+          if (raftRole == Role.LEADER) {
             listener.onTransitionToLeader(partitionId, leaderTerm);
           } else {
             listener.onTransitionToFollower(partitionId);
@@ -150,9 +153,5 @@ public class PartitionLeaderElection extends Actor
         () -> {
           leaderElectionListeners.remove(listener);
         });
-  }
-
-  public boolean isLeader() {
-    return isLeader;
   }
 }
