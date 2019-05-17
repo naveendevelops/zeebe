@@ -95,6 +95,7 @@ public class DefaultStrategyPicker implements RestoreStrategyPicker {
 
     switch (response.getReplicationTarget()) {
       case SNAPSHOT:
+        snapshotRestoreStrategy.setLatestLocalPosition(latestLocalPosition);
         snapshotRestoreStrategy.setBackupPosition(backupPosition);
         snapshotRestoreStrategy.setServer(server);
         result.complete(snapshotRestoreStrategy);

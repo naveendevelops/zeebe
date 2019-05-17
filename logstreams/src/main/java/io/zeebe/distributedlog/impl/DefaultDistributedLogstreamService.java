@@ -282,7 +282,6 @@ public class DefaultDistributedLogstreamService
         new LogReplicator(this, restoreClient, restoreThreadContext, LOG);
     final SnapshotRestoreStrategy snapshotRestoreStrategy =
         new SnapshotRestoreStrategy(
-            clientFactory,
             restoreClient,
             partitionId,
             logStream,

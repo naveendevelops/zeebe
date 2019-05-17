@@ -21,19 +21,12 @@ import io.atomix.cluster.MemberId;
 import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
 import io.atomix.primitive.partition.Partition;
-import io.zeebe.broker.engine.EngineService;
-import io.zeebe.broker.exporter.ExporterManagerService;
-import io.zeebe.distributedlog.StorageConfiguration;
-import io.zeebe.distributedlog.impl.LogstreamConfig;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreInfoRequest;
 import io.zeebe.distributedlog.restore.RestoreInfoResponse;
 import io.zeebe.distributedlog.restore.log.LogReplicationRequest;
 import io.zeebe.distributedlog.restore.log.LogReplicationResponse;
-import io.zeebe.engine.state.StateStorageFactory;
-import io.zeebe.engine.state.replication.StateReplication;
-import io.zeebe.logstreams.state.SnapshotReplication;
-import io.zeebe.logstreams.state.StateStorage;
+import io.zeebe.distributedlog.restore.snapshot.SnapshotRestoreContext;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -74,30 +67,8 @@ public class BrokerRestoreClient implements RestoreClient {
   }
 
   @Override
-  public SnapshotReplication createProcessorSnapshotReplicationConsumer(int partitionId) {
-    return new StateReplication(eventService, partitionId, EngineService.PROCESSOR_NAME);
-  }
-
-  @Override
-  public SnapshotReplication createExporterSnapshotReplicationConsumer(int partitionId) {
-    return new StateReplication(eventService, partitionId, ExporterManagerService.PROCESSOR_NAME);
-  }
-
-  @Override
-  public StateStorage getProcessorStateStorage(int partitionId) {
-    final StorageConfiguration configuration =
-        LogstreamConfig.getConfig(localMemberId, partitionId).join();
-    return new StateStorageFactory(configuration.getStatesDirectory())
-        .create(partitionId, EngineService.PROCESSOR_NAME);
-  }
-
-  @Override
-  public StateStorage getExporterStateStorage(int partitionId) {
-    final StorageConfiguration configuration =
-        LogstreamConfig.getConfig(localMemberId, partitionId).join();
-    return new StateStorageFactory(configuration.getStatesDirectory())
-        .create(
-            ExporterManagerService.EXPORTER_PROCESSOR_ID, ExporterManagerService.PROCESSOR_NAME);
+  public SnapshotRestoreContext createSnapshotRestoreContext() {
+    return new BrokerSnapshotRestoreContext(eventService, localMemberId);
   }
 
   @Override
