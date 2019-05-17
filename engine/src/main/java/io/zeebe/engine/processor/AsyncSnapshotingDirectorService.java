@@ -26,12 +26,13 @@ import io.zeebe.servicecontainer.ServiceStopContext;
 import java.time.Duration;
 
 public class AsyncSnapshotingDirectorService implements Service<AsyncSnapshotingDirectorService> {
-  public final Injector<StreamProcessorService> streamProcessorServiceInjector = new Injector<>();
+  private final Injector<StreamProcessorService> streamProcessorServiceInjector = new Injector<>();
 
   private final StateSnapshotController snapshotController;
   private final LogStream logStream;
   private final Duration snapshotPeriod;
   private final int maxSnapshots;
+  private AsyncSnapshotDirector asyncSnapshotDirector;
 
   public AsyncSnapshotingDirectorService(
       final StateSnapshotController snapshotController,
@@ -46,7 +47,7 @@ public class AsyncSnapshotingDirectorService implements Service<AsyncSnapshoting
 
   @Override
   public void start(final ServiceStartContext startContext) {
-    final AsyncSnapshotDirector asyncSnapshotDirector =
+    asyncSnapshotDirector =
         new AsyncSnapshotDirector(
             streamProcessorServiceInjector.getValue().getController(),
             snapshotController,
@@ -58,7 +59,15 @@ public class AsyncSnapshotingDirectorService implements Service<AsyncSnapshoting
   }
 
   @Override
-  public void stop(final ServiceStopContext stopContext) {}
+  public void stop(final ServiceStopContext stopContext) {
+    stopContext.run(
+        () -> {
+          if (asyncSnapshotDirector != null) {
+            asyncSnapshotDirector.close();
+            asyncSnapshotDirector = null;
+          }
+        });
+  }
 
   @Override
   public AsyncSnapshotingDirectorService get() {

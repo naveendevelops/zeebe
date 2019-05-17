@@ -53,6 +53,7 @@ public class ExporterManagerTest {
             exporterCfg.setId("test-exporter");
 
             brokerCfg.setExporters(Collections.singletonList(exporterCfg));
+            brokerCfg.getData().setSnapshotPeriod("30s");
           });
 
   public ClientApiRule clientRule = new ClientApiRule(brokerRule::getAtomix);
@@ -82,7 +83,7 @@ public class ExporterManagerTest {
     final long deploymentKey2 = testClient.deploy(WORKFLOW);
     waitUntil(() -> isDeploymentExported(deploymentKey2));
 
-    assertThat(TestExporter.records).extracting(r -> r.getKey()).doesNotContain(deploymentKey1);
+    assertThat(TestExporter.records).extracting(Record::getKey).doesNotContain(deploymentKey1);
   }
 
   @Test
@@ -105,7 +106,7 @@ public class ExporterManagerTest {
     waitUntil(() -> isDeploymentExported(deploymentKey2));
 
     assertThat(TestExporter.records)
-        .extracting(r -> r.getKey())
+        .extracting(Record::getKey)
         .contains(deploymentKey1, deploymentKey2);
   }
 

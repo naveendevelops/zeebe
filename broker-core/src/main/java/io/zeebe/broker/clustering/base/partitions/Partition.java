@@ -73,7 +73,6 @@ public class Partition implements Service<Partition> {
     final String streamProcessorName = EngineService.PROCESSOR_NAME;
     logStream = logStreamInjector.getValue();
 
-    // TODO: should this be closed here or in its service (analyze dependencies)
     this.snapshotController = snapshotControllerInjector.getValue();
 
     if (state == RaftState.FOLLOWER) {
@@ -81,15 +80,16 @@ public class Partition implements Service<Partition> {
 
       this.snapshotController.consumeReplicatedSnapshots(logStream::delete);
     } else {
-      try {
-        snapshotController.recover();
-      } catch (Exception e) {
-        Loggers.SERVICES_LOGGER.error(
-            String.format(
-                "Unexpected error occurred while recovering snapshot controller on partition %d",
-                partitionId),
-            e);
-      }
+      //      try {
+      //        snapshotController.recover();
+      //      } catch (Exception e) {
+      //        Loggers.SERVICES_LOGGER.error(
+      //            String.format(
+      //                "Unexpected error occurred while recovering snapshot controller on partition
+      // %d",
+      //                partitionId),
+      //            e);
+      //      }
       executor =
           Executors.newSingleThreadExecutor(
               (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
@@ -129,11 +129,11 @@ public class Partition implements Service<Partition> {
           "Unexpected error occurred while obtaining the lowest exported position at a follower.",
           e);
     } finally {
-      //      try {
-      //        snapshotController.close();
-      //      } catch (Exception e) {
-      //        LOG.error("Unexpected error occurred while closing the DB.", e);
-      //      }
+      try {
+        snapshotController.close();
+      } catch (Exception e) {
+        LOG.error("Unexpected error occurred while closing the DB.", e);
+      }
     }
 
     return -1;

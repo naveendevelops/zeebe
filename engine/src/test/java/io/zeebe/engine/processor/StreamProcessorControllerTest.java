@@ -448,7 +448,6 @@ public class StreamProcessorControllerTest {
     final long lastEventPosition = writeEventAndWaitUntilProcessed(EVENT_1);
 
     latch.await();
-    asyncSnapshotDirector.close().join();
     streamProcessorController.closeAsync().join();
 
     // then

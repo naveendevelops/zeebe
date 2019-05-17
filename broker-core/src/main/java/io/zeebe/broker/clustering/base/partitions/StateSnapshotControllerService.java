@@ -39,6 +39,7 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
   private final Injector<StateStorageFactory> stateStorageFactoryInjector = new Injector<>();
 
   private final ClusterEventService eventService;
+  private final RaftState role;
   private final BrokerCfg brokerCfg;
   private final int partitionId;
 
@@ -46,10 +47,14 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
   private StateSnapshotController snapshotController;
 
   public StateSnapshotControllerService(
-      BrokerCfg brokerCfg, ClusterEventService eventService, final int partitionId) {
+      BrokerCfg brokerCfg,
+      ClusterEventService eventService,
+      final int partitionId,
+      final RaftState role) {
     this.brokerCfg = brokerCfg;
     this.partitionId = partitionId;
     this.eventService = eventService;
+    this.role = role;
   }
 
   @Override
@@ -71,18 +76,17 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
             stateReplication,
             brokerCfg.getData().getMaxSnapshots());
 
-    //    if (role == RaftState.LEADER) {
-    //      try {
-    //        snapshotController.recover();
-    //      } catch (Exception e) {
-    //        Loggers.SERVICES_LOGGER.error(
-    //            String.format(
-    //                "Unexpected error occurred while recovering snapshot controller on partition
-    // %d",
-    //                partitionId),
-    //            e);
-    //      }
-    //    }
+    if (role == RaftState.LEADER) {
+      try {
+        snapshotController.recover();
+      } catch (Exception e) {
+        Loggers.SERVICES_LOGGER.error(
+            String.format(
+                "Unexpected error occurred while recovering snapshot controller on partition %d",
+                partitionId),
+            e);
+      }
+    }
   }
 
   private boolean shouldReplicateSnapshots() {
@@ -91,16 +95,19 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    stateReplication.close();
-    if (snapshotController != null) {
-      try {
-        snapshotController.close();
-        snapshotController = null;
-      } catch (Exception e) {
-        Loggers.SERVICES_LOGGER.error(
+    stopContext.run(() -> {
+
+      stateReplication.close();
+      if (snapshotController != null) {
+        try {
+          snapshotController.close();
+          snapshotController = null;
+        } catch (Exception e) {
+          Loggers.SERVICES_LOGGER.error(
             "Unexpected error occurred while closing snapshotController: ", e);
+        }
       }
-    }
+    });
   }
 
   @Override

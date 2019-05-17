@@ -145,6 +145,9 @@ public class EngineService implements Service<EngineService> {
         .dependency(
             streamProcessorControllerServiceName,
             snapshotDirectorService.getStreamProcessorServiceInjector())
+        //        .dependency(
+        //            stateSnapshotControllerServiceName(
+        //                Partition.getPartitionName(partition.getPartitionId())))
         .install();
   }
 

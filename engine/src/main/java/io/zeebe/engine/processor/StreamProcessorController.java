@@ -277,6 +277,14 @@ public class StreamProcessorController extends Actor {
     return processingStateMachine.getLastWrittenPositionAsync();
   }
 
+  public long getLastProcessedPosition() {
+    return processingStateMachine.getLastSuccessfulProcessedEventPosition();
+  }
+
+  public long getLastWrittenPosition() {
+    return processingStateMachine.getLastWrittenEventPosition();
+  }
+
   public StreamProcessorMetrics getMetrics() {
     return metrics;
   }

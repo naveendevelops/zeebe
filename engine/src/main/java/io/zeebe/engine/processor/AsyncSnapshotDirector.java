@@ -110,18 +110,6 @@ public class AsyncSnapshotDirector extends Actor {
   @Override
   protected void onActorCloseRequested() {
     logStream.removeOnCommitPositionUpdatedCondition(commitCondition);
-
-    try {
-      actor.runOnCompletionBlockingCurrentPhase(
-          streamProcessorController.getLastWrittenPositionAsync(),
-          (writtenPosition, e1) ->
-              actor.runOnCompletionBlockingCurrentPhase(
-                  streamProcessorController.getLastProcessedPositionAsync(),
-                  (processedPosition, e2) ->
-                      enforceSnapshotCreation(writtenPosition, processedPosition)));
-    } catch (Exception e) {
-      LOG.error("Unexpected error occurred while taking snapshot on closing.", e);
-    }
   }
 
   public void enforceSnapshotCreation(
@@ -231,7 +219,10 @@ public class AsyncSnapshotDirector extends Actor {
     }
   }
 
-  public ActorFuture<Void> close() {
-    return actor.close();
+  public void close() {
+    enforceSnapshotCreation(
+        streamProcessorController.getLastWrittenPosition(),
+        streamProcessorController.getLastProcessedPosition());
+    actor.close();
   }
 }

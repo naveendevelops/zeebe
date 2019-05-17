@@ -348,7 +348,6 @@ public class AsyncSnapshotingTest {
     inOrder.verify(snapshotController, TIMEOUT).ensureMaxSnapshotCount(MAX_SNAPSHOTS);
     inOrder.verify(snapshotController, TIMEOUT).replicateLatestSnapshot(any());
 
-    asyncSnapshotDirector.close().join();
     createAsyncSnapshotDirector(logStreamRule.getActorScheduler());
 
     logStreamRule.getClock().addTime(Duration.ofMinutes(1));

@@ -58,4 +58,10 @@ public class PartitionServiceNames {
     return ServiceName.newServiceName(
         String.format("cluster.base.partition.leader.install.root.%s", partitionName), Void.class);
   }
+
+  public static ServiceName<Void> followerInstallServiceRootName(final String partitionName) {
+    return ServiceName.newServiceName(
+        String.format("cluster.base.partition.follower.install.root.%s", partitionName),
+        Void.class);
+  }
 }

@@ -127,7 +127,7 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
 
     try {
       // TODO (saig0): don't open and recover the latest snapshot in the service - #2353
-      // final long snapshotPosition = snapshotController.recover();
+      //       final long snapshotPosition = snapshotController.recover();
       final ZeebeDb<ZbColumnFamilies> db = snapshotController.openDb();
       final ExporterStreamProcessorState state =
           new ExporterStreamProcessorState(db, db.createContext());
@@ -142,7 +142,8 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
           });
 
       // TODO (saig0): don't take a new snapshot in the service - #2353
-      // snapshotController.takeSnapshot(snapshotPosition + 1);
+//      final long snapshotPosition = snapshotController.getLastValidSnapshotPosition();
+//      snapshotController.takeSnapshot(snapshotPosition + 1);
 
     } catch (Exception e) {
       LOG.error("Failed to remove exporters from state", e);

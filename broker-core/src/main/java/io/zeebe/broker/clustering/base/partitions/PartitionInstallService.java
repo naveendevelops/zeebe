@@ -78,6 +78,7 @@ public class PartitionInstallService extends Actor
   private ServiceName<Partition> leaderPartitionServiceName;
   private ServiceName<Partition> followerPartitionServiceName;
   private ServiceName<Void> leaderInstallRootServiceName;
+  private ServiceName<Void> followerInstallRootServiceName;
   private ServiceName<PartitionLeaderElection> partitionLeaderElectionServiceName;
   private String logName;
   private ActorFuture<PartitionLeaderElection> leaderElectionInstallFuture;
@@ -119,6 +120,7 @@ public class PartitionInstallService extends Actor
 
     logStreamServiceName = LogStreamServiceNames.logStreamServiceName(logName);
     leaderInstallRootServiceName = PartitionServiceNames.leaderInstallServiceRootName(logName);
+    followerInstallRootServiceName = PartitionServiceNames.followerInstallServiceRootName(logName);
 
     // TODO: Do we have to move to distributed log service
     final StateStorageFactoryService stateStorageFactoryService =
@@ -146,8 +148,6 @@ public class PartitionInstallService extends Actor
     followerPartitionServiceName = followerPartitionServiceName(logName);
     snapshotControllerServiceName = stateSnapshotControllerServiceName(logName);
 
-    installSnapshotControllerService();
-
     startContext.getScheduler().submitActor(this);
   }
 
@@ -155,6 +155,10 @@ public class PartitionInstallService extends Actor
   public void stop(ServiceStopContext stopContext) {
     leaderElection.removeListener(this);
     LogstreamConfig.removeLeaderElectionController(localMemberId, partitionId);
+
+    //    final List<ActorFuture> futures =
+    //        Arrays.asList(removeFollowerPartitionService(), removeLeaderPartitionService());
+    //    futures.forEach(ActorFuture::join);
   }
 
   @Override
@@ -238,6 +242,8 @@ public class PartitionInstallService extends Actor
     final CompositeServiceBuilder leaderInstallService =
         startContext.createComposite(leaderInstallRootServiceName);
 
+    installSnapshotControllerService(leaderInstallService, RaftState.LEADER);
+
     // Get an instance of DistributedLog
     final DistributedLogstreamPartition distributedLogstreamPartition =
         new DistributedLogstreamPartition(partitionId, leaderTerm);
@@ -273,7 +279,12 @@ public class PartitionInstallService extends Actor
     final Partition partition =
         new Partition(brokerCfg, clusterCommunicationService, partitionId, RaftState.FOLLOWER);
 
-    return startContext
+    final CompositeServiceBuilder serviceBuilder =
+        startContext.createComposite(followerInstallRootServiceName);
+
+    installSnapshotControllerService(serviceBuilder, RaftState.LEADER);
+
+    return serviceBuilder
         .createService(followerPartitionServiceName, partition)
         .dependency(logStreamServiceName, partition.getLogStreamInjector())
         .dependency(snapshotControllerServiceName, partition.getSnapshotControllerInjector())
@@ -282,31 +293,25 @@ public class PartitionInstallService extends Actor
   }
 
   private ActorFuture<Void> removeFollowerPartitionService() {
-    if (startContext.hasService(followerPartitionServiceName)) {
+    if (startContext.hasService(followerInstallRootServiceName)) {
       LOG.debug("Removing follower partition service for partition {}", partitionId);
-      return startContext.removeService(followerPartitionServiceName);
+      return startContext.removeService(followerInstallRootServiceName);
     }
     return CompletableActorFuture.completed(null);
   }
 
-  private void installSnapshotControllerService() {
+  private void installSnapshotControllerService(
+      CompositeServiceBuilder serviceBuilder, RaftState role) {
     LOG.debug("Installing snapshot controller service for partition {}", partitionId);
 
     final StateSnapshotControllerService snapshotControllerService =
-        new StateSnapshotControllerService(brokerCfg, clusterEventService, partitionId);
+        new StateSnapshotControllerService(brokerCfg, clusterEventService, partitionId, role);
 
-    startContext
+    serviceBuilder
         .createService(snapshotControllerServiceName, snapshotControllerService)
         .dependency(
             stateStorageFactoryServiceName(logName),
             snapshotControllerService.getStateStorageFactoryInjector())
         .install();
-  }
-
-  private void removeSnapshotControllerService() {
-    if (startContext.hasService(snapshotControllerServiceName)) {
-      LOG.debug("Removing snapshot controller service for partition {}", partitionId);
-      startContext.removeService(snapshotControllerServiceName);
-    }
   }
 }
