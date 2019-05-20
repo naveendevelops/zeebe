@@ -155,10 +155,6 @@ public class PartitionInstallService extends Actor
   public void stop(ServiceStopContext stopContext) {
     leaderElection.removeListener(this);
     LogstreamConfig.removeLeaderElectionController(localMemberId, partitionId);
-
-    //    final List<ActorFuture> futures =
-    //        Arrays.asList(removeFollowerPartitionService(), removeLeaderPartitionService());
-    //    futures.forEach(ActorFuture::join);
   }
 
   @Override
@@ -282,7 +278,7 @@ public class PartitionInstallService extends Actor
     final CompositeServiceBuilder serviceBuilder =
         startContext.createComposite(followerInstallRootServiceName);
 
-    installSnapshotControllerService(serviceBuilder, RaftState.LEADER);
+    installSnapshotControllerService(serviceBuilder, RaftState.FOLLOWER);
 
     return serviceBuilder
         .createService(followerPartitionServiceName, partition)

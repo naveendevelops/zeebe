@@ -343,15 +343,15 @@ public class AsyncSnapshotingTest {
     inOrder.verify(snapshotController, TIMEOUT).ensureMaxSnapshotCount(MAX_SNAPSHOTS);
     inOrder.verify(snapshotController, TIMEOUT).replicateLatestSnapshot(any());
 
-    logStreamRule.closeLogStream();
-    logStreamRule.startLogStream();
     createAsyncSnapshotDirector(logStreamRule.getActorScheduler());
 
     logStreamRule.getClock().addTime(Duration.ofMinutes(1));
 
     // then
     inOrder.verify(snapshotController, TIMEOUT).getLastValidSnapshotPosition();
-    inOrder.verify(mockStreamProcessorController, TIMEOUT).getLastProcessedPositionAsync();
+    inOrder
+        .verify(mockStreamProcessorController, TIMEOUT.atLeastOnce())
+        .getLastProcessedPositionAsync();
 
     inOrder.verifyNoMoreInteractions();
   }

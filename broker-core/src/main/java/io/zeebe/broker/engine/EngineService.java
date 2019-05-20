@@ -59,7 +59,6 @@ import io.zeebe.servicecontainer.ServiceStartContext;
 import io.zeebe.transport.ServerTransport;
 import io.zeebe.util.DurationUtil;
 import io.zeebe.util.sched.ActorControl;
-import io.zeebe.util.sched.future.ActorFuture;
 import java.time.Duration;
 
 public class EngineService implements Service<EngineService> {
@@ -105,21 +104,19 @@ public class EngineService implements Service<EngineService> {
             .processorId(partitionId)
             .processorName(PROCESSOR_NAME);
 
-    final ActorFuture<StreamProcessorService> streamProcessorFuture =
-        streamProcessorServiceBuilder
-            .snapshotController(partition.getSnapshotController())
-            .streamProcessorFactory(
-                (actor, zeebeDb, dbContext) -> {
-                  final ZeebeState zeebeState = new ZeebeState(partitionId, zeebeDb, dbContext);
-                  final TypedStreamEnvironment streamEnvironment =
-                      new TypedStreamEnvironment(
-                          partition.getLogStream(),
-                          new CommandResponseWriterImpl(clientApiTransport.getOutput()));
+    streamProcessorServiceBuilder
+        .snapshotController(partition.getSnapshotController())
+        .streamProcessorFactory(
+            (actor, zeebeDb, dbContext) -> {
+              final ZeebeState zeebeState = new ZeebeState(partitionId, zeebeDb, dbContext);
+              final TypedStreamEnvironment streamEnvironment =
+                  new TypedStreamEnvironment(
+                      partition.getLogStream(),
+                      new CommandResponseWriterImpl(clientApiTransport.getOutput()));
 
-                  return createTypedStreamProcessor(
-                      actor, partitionId, streamEnvironment, zeebeState);
-                })
-            .build();
+              return createTypedStreamProcessor(actor, partitionId, streamEnvironment, zeebeState);
+            })
+        .build();
 
     createAsyncSnapshotDirectorService(partition);
   }
@@ -145,9 +142,6 @@ public class EngineService implements Service<EngineService> {
         .dependency(
             streamProcessorControllerServiceName,
             snapshotDirectorService.getStreamProcessorServiceInjector())
-        //        .dependency(
-        //            stateSnapshotControllerServiceName(
-        //                Partition.getPartitionName(partition.getPartitionId())))
         .install();
   }
 

@@ -80,16 +80,6 @@ public class Partition implements Service<Partition> {
 
       this.snapshotController.consumeReplicatedSnapshots(logStream::delete);
     } else {
-      //      try {
-      //        snapshotController.recover();
-      //      } catch (Exception e) {
-      //        Loggers.SERVICES_LOGGER.error(
-      //            String.format(
-      //                "Unexpected error occurred while recovering snapshot controller on partition
-      // %d",
-      //                partitionId),
-      //            e);
-      //      }
       executor =
           Executors.newSingleThreadExecutor(
               (r) -> new Thread(r, String.format("snapshot-request-server-%d", partitionId)));
