@@ -52,6 +52,11 @@ public class TypedWorkflowInstanceRecord implements TypedRecord<WorkflowInstance
   }
 
   @Override
+  public long getSourceEventPosition() {
+    return 0;
+  }
+
+  @Override
   public RecordMetadata getMetadata() {
     return recordMetadata;
   }

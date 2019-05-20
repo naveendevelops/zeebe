@@ -17,14 +17,21 @@
  */
 package io.zeebe.engine.util;
 
+import static io.zeebe.engine.util.Records.workflowInstance;
+
 import io.zeebe.db.ZeebeDbFactory;
+import io.zeebe.engine.processor.CommandResponseWriter;
+import io.zeebe.engine.processor.StreamProcessor;
+import io.zeebe.engine.processor.TypedRecordProcessorFactory;
 import io.zeebe.engine.processor.TypedRecordProcessors;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.engine.state.ZeebeState;
 import io.zeebe.logstreams.log.LogStream;
+import io.zeebe.logstreams.state.StateSnapshotController;
 import io.zeebe.msgpack.UnpackedObject;
 import io.zeebe.protocol.clientapi.RecordType;
 import io.zeebe.protocol.intent.Intent;
+import io.zeebe.protocol.intent.WorkflowInstanceIntent;
 import io.zeebe.servicecontainer.testing.ServiceContainerRule;
 import io.zeebe.test.util.AutoCloseableRule;
 import io.zeebe.util.ZbLogger;
@@ -43,7 +50,9 @@ public class StreamProcessorRule implements TestRule {
 
   private static final Logger LOG = new ZbLogger("io.zeebe.broker.test");
 
-  public static final int PARTITION_ID = 0;
+  private static final int PARTITION_ID = 0;
+  private static final int STREAM_PROCESSOR_ID = 1;
+
   // environment
   private final TemporaryFolder tempFolder = new TemporaryFolder();
   private final AutoCloseableRule closeables = new AutoCloseableRule();
@@ -54,7 +63,7 @@ public class StreamProcessorRule implements TestRule {
   private final ZeebeDbFactory zeebeDbFactory;
 
   // things provisioned by this rule
-  public static final String STREAM_NAME = "stream";
+  private static final String STREAM_NAME = "stream";
 
   private TestStreams streams;
 
@@ -89,15 +98,35 @@ public class StreamProcessorRule implements TestRule {
     return chain.apply(base, description);
   }
 
-  public void startTypedStreamProcessor(StreamProcessorTestFactory factory) {
-    streams.startStreamProcessor(
-        STREAM_NAME,
-        0,
-        zeebeDbFactory,
+  public StreamProcessor startTypedStreamProcessor(StreamProcessorTestFactory factory) {
+    return startTypedStreamProcessor(
         (processingContext) -> {
           zeebeState = processingContext.getZeebeState();
           return factory.build(TypedRecordProcessors.processors(), zeebeState);
         });
+  }
+
+  public StreamProcessor startTypedStreamProcessor(TypedRecordProcessorFactory factory) {
+    return streams.startStreamProcessor(
+        STREAM_NAME,
+        STREAM_PROCESSOR_ID,
+        zeebeDbFactory,
+        (processingContext -> {
+          zeebeState = processingContext.getZeebeState();
+          return factory.createProcessors(processingContext);
+        }));
+  }
+
+  public long getCommitPosition() {
+    return streams.getLogStream(STREAM_NAME).getCommitPosition();
+  }
+
+  public StateSnapshotController getStateSnapshotController() {
+    return streams.getStateSnapshotController(STREAM_NAME);
+  }
+
+  public CommandResponseWriter getCommandResponseWriter() {
+    return streams.getMockedResponseWriter();
   }
 
   public ControlledActorClock getClock() {
@@ -110,6 +139,55 @@ public class StreamProcessorRule implements TestRule {
 
   public RecordStream events() {
     return new RecordStream(streams.events(STREAM_NAME));
+  }
+
+  public void printAllRecords() {
+    final LogStream logStream = streams.getLogStream(STREAM_NAME);
+    LogStreamPrinter.printRecords(logStream);
+  }
+
+  private class SetupRule extends ExternalResource {
+
+    private final int partitionId;
+
+    SetupRule(int partitionId) {
+      this.partitionId = partitionId;
+    }
+
+    @Override
+    protected void before() {
+      streams =
+          new TestStreams(
+              tempFolder, closeables, serviceContainerRule.get(), actorSchedulerRule.get());
+      streams.createLogStream(STREAM_NAME, partitionId);
+    }
+  }
+
+  private class FailedTestRecordPrinter extends TestWatcher {
+
+    @Override
+    protected void failed(Throwable e, Description description) {
+      LOG.info("Test failed, following records where exported:");
+      printAllRecords();
+    }
+  }
+
+  @FunctionalInterface
+  public interface StreamProcessorTestFactory {
+    TypedRecordProcessors build(TypedRecordProcessors builder, ZeebeState zeebeState);
+  }
+
+  public long writeWorkflowInstanceEvent(WorkflowInstanceIntent intent) {
+    return writeWorkflowInstanceEvent(intent, 1);
+  }
+
+  public long writeWorkflowInstanceEvent(WorkflowInstanceIntent intent, int instanceKey) {
+    return streams
+        .newRecord(STREAM_NAME)
+        .event(workflowInstance(instanceKey))
+        .recordType(RecordType.EVENT)
+        .intent(intent)
+        .write();
   }
 
   public long writeEvent(long key, Intent intent, UnpackedObject value) {
@@ -148,41 +226,5 @@ public class StreamProcessorRule implements TestRule {
         .intent(intent)
         .event(value)
         .write();
-  }
-
-  public void printAllRecords() {
-    final LogStream logStream = streams.getLogStream(STREAM_NAME);
-    LogStreamPrinter.printRecords(logStream);
-  }
-
-  private class SetupRule extends ExternalResource {
-
-    private final int partitionId;
-
-    SetupRule(int partitionId) {
-      this.partitionId = partitionId;
-    }
-
-    @Override
-    protected void before() {
-      streams =
-          new TestStreams(
-              tempFolder, closeables, serviceContainerRule.get(), actorSchedulerRule.get());
-      streams.createLogStream(STREAM_NAME, partitionId);
-    }
-  }
-
-  private class FailedTestRecordPrinter extends TestWatcher {
-
-    @Override
-    protected void failed(Throwable e, Description description) {
-      LOG.info("Test failed, following records where exported:");
-      printAllRecords();
-    }
-  }
-
-  @FunctionalInterface
-  public interface StreamProcessorTestFactory {
-    TypedRecordProcessors build(TypedRecordProcessors builder, ZeebeState zeebeState);
   }
 }

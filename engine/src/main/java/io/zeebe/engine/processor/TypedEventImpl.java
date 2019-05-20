@@ -42,6 +42,7 @@ public class TypedEventImpl implements TypedRecord {
     return rawEvent.getPosition();
   }
 
+  @Override
   public long getSourceEventPosition() {
     return rawEvent.getSourceEventPosition();
   }

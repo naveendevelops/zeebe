@@ -26,6 +26,8 @@ public interface TypedRecord<T extends UnpackedObject> {
 
   long getKey();
 
+  long getSourceEventPosition();
+
   RecordMetadata getMetadata();
 
   T getValue();

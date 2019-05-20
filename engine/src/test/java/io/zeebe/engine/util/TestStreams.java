@@ -85,7 +85,8 @@ public class TestStreams {
   protected final AutoCloseableRule closeables;
   private final ServiceContainer serviceContainer;
 
-  protected Map<String, LogStream> managedLogs = new HashMap<>();
+  private final Map<String, LogStream> managedLogs = new HashMap<>();
+  private final Map<String, StateSnapshotController> snapshotControllerMap = new HashMap<>();
 
   protected ActorScheduler actorScheduler;
 
@@ -138,14 +139,15 @@ public class TestStreams {
     final StateStorage stateStorage = new StateStorage(index, snapshots);
 
     final LogStream logStream =
-        LogStreams.createFsLogStream(partitionId)
-            .logRootPath(segments.getAbsolutePath())
-            .serviceContainer(serviceContainer)
-            .logName(name)
-            .deleteOnClose(true)
-            .indexStateStorage(stateStorage)
-            .build()
-            .join();
+        spy(
+            LogStreams.createFsLogStream(partitionId)
+                .logRootPath(segments.getAbsolutePath())
+                .serviceContainer(serviceContainer)
+                .logName(name)
+                .deleteOnClose(true)
+                .indexStateStorage(stateStorage)
+                .build()
+                .join());
 
     // Create distributed log service
     final DistributedLogstreamPartition mockDistLog = mock(DistributedLogstreamPartition.class);
@@ -241,13 +243,13 @@ public class TestStreams {
     return stateStorageFactory;
   }
 
-  public void startStreamProcessor(
+  public StreamProcessor startStreamProcessor(
       final String log,
       final int streamProcessorId,
       final ZeebeDbFactory zeebeDbFactory,
       final TypedRecordProcessorFactory typedRecordProcessorFactory) {
     final LogStream stream = getLogStream(log);
-    buildStreamProcessorController(
+    return buildStreamProcessorController(
         streamProcessorId, stream, zeebeDbFactory, typedRecordProcessorFactory);
   }
 
@@ -261,6 +263,7 @@ public class TestStreams {
         getStateStorageFactory().create(streamProcessorId, PROCESSOR_NAME);
     final StateSnapshotController currentSnapshotController =
         spy(new StateSnapshotController(zeebeDbFactory, stateStorage));
+    snapshotControllerMap.put(stream.getLogName(), currentSnapshotController);
 
     final ActorFuture<Void> openFuture = new CompletableActorFuture<>();
 
@@ -287,6 +290,10 @@ public class TestStreams {
             .join();
     openFuture.join();
     return processorService;
+  }
+
+  public StateSnapshotController getStateSnapshotController(String stream) {
+    return snapshotControllerMap.get(stream);
   }
 
   public static class FluentLogWriter {
