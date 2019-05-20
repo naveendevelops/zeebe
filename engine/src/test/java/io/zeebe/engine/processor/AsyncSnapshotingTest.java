@@ -349,10 +349,7 @@ public class AsyncSnapshotingTest {
 
     // then
     inOrder.verify(snapshotController, TIMEOUT).getLastValidSnapshotPosition();
-    inOrder
-        .verify(mockStreamProcessorController, TIMEOUT.atLeastOnce())
-        .getLastProcessedPositionAsync();
-
-    inOrder.verifyNoMoreInteractions();
+    inOrder.verify(mockStreamProcessorController, TIMEOUT).getLastProcessedPositionAsync();
+    Mockito.verifyNoMoreInteractions(snapshotController);
   }
 }
