@@ -40,7 +40,6 @@ import io.zeebe.util.sched.future.CompletableActorFuture;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.function.Consumer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -68,7 +67,6 @@ public class AsyncSnapshotingTest {
   private LogStream logStream;
   private AsyncSnapshotDirector asyncSnapshotDirector;
   private StreamProcessorController mockStreamProcessorController;
-  private StreamProcessorMetrics streamProcessorMetrics;
 
   @Before
   public void setup() throws IOException {
@@ -101,7 +99,8 @@ public class AsyncSnapshotingTest {
     when(mockStreamProcessorController.getLastWrittenPositionAsync())
         .thenReturn(CompletableActorFuture.completed(99L), CompletableActorFuture.completed(100L));
 
-    streamProcessorMetrics = new StreamProcessorMetrics(new MetricsManager(), PROCESSOR_NAME, "1");
+    final StreamProcessorMetrics streamProcessorMetrics =
+        new StreamProcessorMetrics(new MetricsManager(), PROCESSOR_NAME, "1");
     when(mockStreamProcessorController.getMetrics()).thenReturn(streamProcessorMetrics);
   }
 
@@ -111,7 +110,7 @@ public class AsyncSnapshotingTest {
             mockStreamProcessorController,
             snapshotController,
             logStream,
-            Duration.ofSeconds(15),
+            Duration.ofMinutes(1),
             MAX_SNAPSHOTS);
     actorScheduler.submitActor(this.asyncSnapshotDirector).join();
   }
@@ -255,7 +254,7 @@ public class AsyncSnapshotingTest {
   }
 
   @Test
-  public void shouldEnforceSnapshotCreation() throws Exception {
+  public void shouldEnforceSnapshotCreation() {
     // given
     long lastProcessedPosition = 25L;
     long lastWrittenPosition = 26L;
@@ -266,19 +265,15 @@ public class AsyncSnapshotingTest {
     when(mockStreamProcessorController.getLastWrittenPositionAsync())
         .thenReturn(CompletableActorFuture.completed(lastWrittenPosition));
     logStreamRule.setCommitPosition(commitPosition);
-
-    logStreamRule.getClock().addTime(Duration.ofMinutes(1));
-    verify(snapshotController, TIMEOUT).moveValidSnapshot(lastProcessedPosition);
-    verify(snapshotController, TIMEOUT).replicateLatestSnapshot(any(Consumer.class));
+    verify(snapshotController, TIMEOUT).getLastValidSnapshotPosition();
 
     // when
     lastProcessedPosition = 26L;
     lastWrittenPosition = 27L;
-
     asyncSnapshotDirector.enforceSnapshotCreation(lastWrittenPosition, lastProcessedPosition);
 
     // then
-    verify(snapshotController, TIMEOUT.times(1)).takeSnapshot(lastProcessedPosition);
+    verify(snapshotController, TIMEOUT).takeSnapshot(lastProcessedPosition);
   }
 
   @Test
@@ -325,7 +320,7 @@ public class AsyncSnapshotingTest {
   }
 
   @Test
-  public void shouldNotTakeSnapshotIfExistsAfterRestart() throws IOException {
+  public void shouldNotTakeSnapshotIfExistsAfterRestart() throws Exception {
     // given
     final long lastProcessedPosition = 25L;
     final long lastWrittenPosition = lastProcessedPosition;
@@ -348,6 +343,8 @@ public class AsyncSnapshotingTest {
     inOrder.verify(snapshotController, TIMEOUT).ensureMaxSnapshotCount(MAX_SNAPSHOTS);
     inOrder.verify(snapshotController, TIMEOUT).replicateLatestSnapshot(any());
 
+    logStreamRule.closeLogStream();
+    logStreamRule.startLogStream();
     createAsyncSnapshotDirector(logStreamRule.getActorScheduler());
 
     logStreamRule.getClock().addTime(Duration.ofMinutes(1));

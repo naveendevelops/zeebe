@@ -142,8 +142,8 @@ public class ExporterManagerService implements Service<ExporterManagerService> {
           });
 
       // TODO (saig0): don't take a new snapshot in the service - #2353
-//      final long snapshotPosition = snapshotController.getLastValidSnapshotPosition();
-//      snapshotController.takeSnapshot(snapshotPosition + 1);
+      //      final long snapshotPosition = snapshotController.getLastValidSnapshotPosition();
+      //      snapshotController.takeSnapshot(snapshotPosition + 1);
 
     } catch (Exception e) {
       LOG.error("Failed to remove exporters from state", e);

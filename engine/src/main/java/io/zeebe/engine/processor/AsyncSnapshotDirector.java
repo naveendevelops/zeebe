@@ -45,7 +45,7 @@ public class AsyncSnapshotDirector extends Actor {
   private static final String LOG_MSG_ENFORCE_SNAPSHOT =
       "Enforce snapshot creation. Last successful processed position is {}.";
   private static final String ERROR_MSG_ENFORCED_SNAPSHOT =
-      "Unexpected exception occured on creating snapshot, was enforced to do so.";
+      "Unexpected exception occurred on creating snapshot, was enforced to do so.";
 
   private static final int INITIAL_POSITION = -1;
 

@@ -93,6 +93,10 @@ public class LogStreamRule extends ExternalResource {
 
   @Override
   protected void before() {
+    startLogStream();
+  }
+
+  public void startLogStream() {
     actorScheduler = new ActorSchedulerRule(clock).get();
     actorScheduler.start();
 
@@ -103,7 +107,7 @@ public class LogStreamRule extends ExternalResource {
       this.blockIndexDirectory = temporaryFolder.newFolder("index", "runtime");
       this.snapshotDirectory = temporaryFolder.newFolder("index", "snapshots");
     } catch (IOException e) {
-      LOG.error("Couldn't create blockIndex/snapshots directory", e);
+      LOG.debug("LogStreamRule couldn't create blockIndex/snapshots directory", e);
     }
 
     stateStorage = new StateStorage(blockIndexDirectory, snapshotDirectory);

@@ -95,19 +95,19 @@ public class StateSnapshotControllerService implements Service<StateSnapshotCont
 
   @Override
   public void stop(ServiceStopContext stopContext) {
-    stopContext.run(() -> {
-
-      stateReplication.close();
-      if (snapshotController != null) {
-        try {
-          snapshotController.close();
-          snapshotController = null;
-        } catch (Exception e) {
-          Loggers.SERVICES_LOGGER.error(
-            "Unexpected error occurred while closing snapshotController: ", e);
-        }
-      }
-    });
+    stopContext.run(
+        () -> {
+          stateReplication.close();
+          if (snapshotController != null) {
+            try {
+              snapshotController.close();
+              snapshotController = null;
+            } catch (Exception e) {
+              Loggers.SERVICES_LOGGER.error(
+                  "Unexpected error occurred while closing snapshotController: ", e);
+            }
+          }
+        });
   }
 
   @Override
