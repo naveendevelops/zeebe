@@ -115,13 +115,18 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
             latestLocalPosition,
             getValidSnapshotPosition(
                 processorSnapshotPosition)); // if exporter position is behind local logstream
-    // logStream.delete(lastEventPosition);
+    // logStream.delete(lastEventPosition); //TODO
     LoggerFactory.getLogger("Snapshot restore")
         .info("Snapshot replicated {}, backup position {}", lastEventPosition, backupPosition);
-    logStream.setCommitPosition(lastEventPosition);
+    // Replicate events including lastEventPosition
     if (lastEventPosition < backupPosition) {
       return logReplicator.replicate(server, lastEventPosition, backupPosition);
     } else {
+      // TODO
+      /* return logReplicator.replicate(
+      server,
+      lastEventPosition,
+      lastEventPosition); // replicate one event for the snapshot to be useable */
       return CompletableFuture.completedFuture(lastEventPosition);
     }
   }
