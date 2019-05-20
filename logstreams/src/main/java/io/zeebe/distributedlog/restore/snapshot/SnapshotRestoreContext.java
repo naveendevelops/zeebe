@@ -29,4 +29,6 @@ public interface SnapshotRestoreContext {
   StateStorage getExporterStateStorage(int partitionId);
 
   Supplier<Long> getExporterPositionSupplier(StateStorage exporterStorage);
+
+  Supplier<Long> getProcessorPositionSupplier(int partitionId, StateStorage processorStorage);
 }

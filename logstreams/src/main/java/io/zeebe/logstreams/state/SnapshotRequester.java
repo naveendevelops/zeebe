@@ -86,7 +86,6 @@ public class SnapshotRequester {
       } catch (Exception e) {
         future.completeExceptionally(e);
       }
-
       controller.removeListener(this);
     }
 

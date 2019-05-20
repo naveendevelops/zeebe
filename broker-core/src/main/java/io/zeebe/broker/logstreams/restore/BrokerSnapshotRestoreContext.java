@@ -28,6 +28,7 @@ import io.zeebe.distributedlog.impl.LogstreamConfig;
 import io.zeebe.distributedlog.restore.snapshot.SnapshotRestoreContext;
 import io.zeebe.engine.state.DefaultZeebeDbFactory;
 import io.zeebe.engine.state.StateStorageFactory;
+import io.zeebe.engine.state.ZeebeState;
 import io.zeebe.engine.state.replication.StateReplication;
 import io.zeebe.logstreams.spi.SnapshotController;
 import io.zeebe.logstreams.state.SnapshotReplication;
@@ -77,6 +78,12 @@ public class BrokerSnapshotRestoreContext implements SnapshotRestoreContext {
     return () -> getLowestReplicatedExportedPosition(exporterStorage);
   }
 
+  @Override
+  public Supplier<Long> getProcessorPositionSupplier(
+      int partitionId, StateStorage processorStorage) {
+    return () -> getLatestProcessedPosition(partitionId, processorStorage);
+  }
+
   private long getLowestReplicatedExportedPosition(StateStorage exporterStorage) {
     final SnapshotController exporterSnapshotController =
         new StateSnapshotController(
@@ -101,6 +108,34 @@ public class BrokerSnapshotRestoreContext implements SnapshotRestoreContext {
     } finally {
       try {
         exporterSnapshotController.close();
+      } catch (Exception e) {
+
+      }
+    }
+    return -1;
+  }
+
+  private long getLatestProcessedPosition(int partitionId, StateStorage stateStorage) {
+    final SnapshotController processorSnapshotController =
+        new StateSnapshotController(
+            DefaultZeebeDbFactory.DEFAULT_DB_FACTORY, stateStorage, null, 1);
+
+    try {
+      if (processorSnapshotController.getValidSnapshotsCount() > 0) {
+        processorSnapshotController.recover();
+        final ZeebeDb zeebeDb = processorSnapshotController.openDb();
+        final ZeebeState processorState =
+            new ZeebeState(partitionId, zeebeDb, zeebeDb.createContext());
+
+        final long lowestPosition = processorState.getLastSuccessfuProcessedRecordPosition();
+
+        return lowestPosition;
+      }
+    } catch (Exception e) {
+
+    } finally {
+      try {
+        processorSnapshotController.close();
       } catch (Exception e) {
 
       }

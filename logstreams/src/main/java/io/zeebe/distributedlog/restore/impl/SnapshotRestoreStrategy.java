@@ -51,6 +51,7 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
   private SnapshotReplication exporterSnapshotReplicationConsumer;
   private StateStorage exporterStorage;
   private long latestLocalPosition;
+  private StateStorage processorStorage;
 
   public SnapshotRestoreStrategy(
       RestoreClient client,
@@ -86,7 +87,7 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
         new ReplicationController(
             exporterSnapshotReplicationConsumer, exporterTmpStorage, () -> {}, () -> -1L);
 
-    final StateStorage processorStorage = restoreContext.getProcessorStateStorage(partitionId);
+    processorStorage = restoreContext.getProcessorStateStorage(partitionId);
     this.requester =
         new SnapshotRequester(
             client,
@@ -104,7 +105,7 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
     return replicated
         .thenCompose(nothing -> client.requestSnapshotInfo(server))
         .thenCompose(numSnapshots -> requester.getLatestSnapshotsFrom(server, numSnapshots > 1))
-        .thenCompose(processorSnapshotPosition -> onSnapshotsReplicated(processorSnapshotPosition));
+        .thenCompose(this::onSnapshotsReplicated);
   }
 
   private CompletableFuture<Long> onSnapshotsReplicated(long processorSnapshotPosition) {
@@ -134,12 +135,16 @@ public class SnapshotRestoreStrategy implements RestoreStrategy {
   private long getValidSnapshotPosition(long processorSnapshotPosition) {
     final Supplier<Long> exporterPositionSupplier =
         restoreContext.getExporterPositionSupplier(exporterStorage);
+    final Supplier<Long> processedPositionSupplier =
+        restoreContext.getProcessorPositionSupplier(partitionId, processorStorage);
+    final long latestProcessedPosition = processedPositionSupplier.get();
     if (exporterPositionSupplier != null) {
       final long exporterPosition = exporterPositionSupplier.get();
-      return Math.min(processorSnapshotPosition, exporterPosition);
-    } else {
-      return processorSnapshotPosition;
+      if (exporterPosition > 0) {
+        return Math.min(latestProcessedPosition, exporterPosition);
+      }
     }
+    return latestProcessedPosition;
   }
 
   public void setBackupPosition(long backupPosition) {
