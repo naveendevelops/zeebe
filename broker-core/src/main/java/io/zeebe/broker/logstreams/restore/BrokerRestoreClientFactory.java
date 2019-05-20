@@ -21,14 +21,10 @@ import io.atomix.cluster.messaging.ClusterCommunicationService;
 import io.atomix.cluster.messaging.ClusterEventService;
 import io.atomix.primitive.partition.Partition;
 import io.atomix.protocols.raft.partition.RaftPartitionGroup;
-import io.zeebe.broker.engine.EngineService;
-import io.zeebe.broker.exporter.ExporterManagerService;
 import io.zeebe.distributedlog.impl.DistributedLogstreamName;
 import io.zeebe.distributedlog.restore.RestoreClient;
 import io.zeebe.distributedlog.restore.RestoreClientFactory;
 import io.zeebe.distributedlog.restore.RestoreServer;
-import io.zeebe.engine.state.replication.StateReplication;
-import io.zeebe.logstreams.state.SnapshotReplication;
 
 public class BrokerRestoreClientFactory implements RestoreClientFactory {
   private final ClusterCommunicationService communicationService;
@@ -83,7 +79,7 @@ public class BrokerRestoreClientFactory implements RestoreClientFactory {
     return String.format("snapshot-request-%d", partitionId);
   }
 
-  private String getSnapshotInfoRequestTopic(int partitionId) {
+  static String getSnapshotInfoRequestTopic(int partitionId) {
     return String.format("snapshot-info-request-%d", partitionId);
   }
 }

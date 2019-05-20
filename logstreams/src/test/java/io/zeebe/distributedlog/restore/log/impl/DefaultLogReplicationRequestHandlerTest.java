@@ -148,8 +148,8 @@ public class DefaultLogReplicationRequestHandlerTest {
     final LogReplicationRequest request =
         new DefaultLogReplicationRequest(
             EVENTS.get(requestedCount).getPosition(), events.lastPosition, true);
-    final DefaultLogReplicationServerHandler handler =
-        new DefaultLogReplicationServerHandler(LOG_STREAM_RULE.getLogStream());
+    final DefaultLogReplicationRequestHandler handler =
+        new DefaultLogReplicationRequestHandler(LOG_STREAM_RULE.getLogStream());
 
     // when
     final LogReplicationResponse response = handler.onReplicationRequest(request);

@@ -21,7 +21,7 @@ import io.atomix.cluster.messaging.ClusterEventService;
 import io.zeebe.broker.engine.EngineService;
 import io.zeebe.broker.exporter.ExporterManagerService;
 import io.zeebe.broker.exporter.stream.ExporterColumnFamilies;
-import io.zeebe.broker.exporter.stream.ExporterStreamProcessorState;
+import io.zeebe.broker.exporter.stream.ExportersState;
 import io.zeebe.db.ZeebeDb;
 import io.zeebe.distributedlog.StorageConfiguration;
 import io.zeebe.distributedlog.impl.LogstreamConfig;
@@ -96,8 +96,7 @@ public class BrokerSnapshotRestoreContext implements SnapshotRestoreContext {
       if (exporterSnapshotController.getValidSnapshotsCount() > 0) {
         exporterSnapshotController.recover();
         final ZeebeDb zeebeDb = exporterSnapshotController.openDb();
-        final ExporterStreamProcessorState exporterState =
-            new ExporterStreamProcessorState(zeebeDb, zeebeDb.createContext());
+        final ExportersState exporterState = new ExportersState(zeebeDb, zeebeDb.createContext());
 
         final long lowestPosition = exporterState.getLowestPosition();
 

@@ -85,10 +85,10 @@ public class LogReplicatorTest {
     // when
     final CompletableFuture<Long> result =
         replicator.replicate(server, -1, response.getToPosition() + 1, true);
-    client.complete(-1, response);
+    client.completeLogReplication(-1, response);
 
     // then
-    assertThat(client.getRequests()).hasSize(2);
+    assertThat(client.getLogReplicationRequests()).hasSize(2);
     assertThat(client.getRequestLog().get(0).includeFromPosition()).isTrue();
     assertThat(client.getRequestLog().get(1).includeFromPosition()).isFalse();
   }
